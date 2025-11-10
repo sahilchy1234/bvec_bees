@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "508194876863",
+    "project_id": "edunova-fa954",
+    "storage_bucket": "edunova-fa954.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:508194876863:android:e0350ad5321da0de4c850a",
+        "android_client_info": {
+          "package_name": "com.bvec.bees"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "508194876863-1pse53ojhqt4b3jo82h4jgpg1efh05tp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBxQDtj0-cr802OQ2_t0AZ9XxZ3dVKqtCE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "508194876863-1pse53ojhqt4b3jo82h4jgpg1efh05tp.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

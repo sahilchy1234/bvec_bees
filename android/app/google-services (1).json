@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "508194876863",
+    "project_id": "edunova-fa954",
+    "storage_bucket": "edunova-fa954.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:508194876863:android:e0350ad5321da0de4c850a",
+        "android_client_info": {
+          "package_name": "com.bvec.bees"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "508194876863-0ak27dss5qlkn63jjfehoj2o7q3p8r80.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bvec.bees",
+            "certificate_hash": "ebd4bbcce7243fcfe274b1fb0e42494d34c80846"
+          }
+        },
+        {
+          "client_id": "508194876863-1pse53ojhqt4b3jo82h4jgpg1efh05tp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBxQDtj0-cr802OQ2_t0AZ9XxZ3dVKqtCE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "508194876863-1pse53ojhqt4b3jo82h4jgpg1efh05tp.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "508194876863-s5lhhfnfc8674cdducfj22gu4v63ltop.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.bvecBees"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
