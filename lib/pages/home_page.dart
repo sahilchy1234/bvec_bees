@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:iconoir_flutter/iconoir_flutter.dart' as iconoir;
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -71,17 +71,17 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.only(bottom: 0, left: 0, right: 0), // Padding outside nav bar
         child: ClipRRect(
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(28),
-            topRight: Radius.circular(28),
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
           ),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.03), // Transparent glass effect
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
                 ),
                 border: const Border(
                   top: BorderSide(color: Colors.white12, width: 1),
@@ -98,44 +98,44 @@ class _HomePageState extends State<HomePage> {
                 items: [
                   BottomNavigationBarItem(
                     icon: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0), // Reduced vertical padding
-                      child: iconoir.Home(
+                      padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 4.0),
+                      child: FaIcon(
+                        _selectedIndex == 0 ? FontAwesomeIcons.houseChimney : FontAwesomeIcons.house,
                         color: _selectedIndex == 0 ? Colors.white : Colors.white54,
-                        width: 26,
-                        height: 26,
+                        size: 20,
                       ),
                     ),
-                    label: 'Home',
+                    label: 'Feed',
                   ),
                   BottomNavigationBarItem(
                     icon: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: iconoir.Group(
+                      padding: const EdgeInsets.all(4.0),
+                      child: FaIcon(
+                        _selectedIndex == 1 ? FontAwesomeIcons.users : FontAwesomeIcons.user,
                         color: _selectedIndex == 1 ? Colors.white : Colors.white54,
-                        width: 26,
-                        height: 26,
+                        size: 20,
                       ),
                     ),
                     label: 'Clubs',
                   ),
                   BottomNavigationBarItem(
                     icon: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: iconoir.Heart(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
+                        _selectedIndex == 2 ? Icons.local_fire_department : Icons.local_fire_department_outlined,
                         color: _selectedIndex == 2 ? Colors.white : Colors.white54,
-                        width: 26,
-                        height: 26,
+                        size: 24,
                       ),
                     ),
-                    label: 'Dating',
+                    label: 'Hot & Not',
                   ),
                   BottomNavigationBarItem(
                     icon: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: iconoir.ChatBubble(
+                      padding: const EdgeInsets.all(4.0),
+                      child: FaIcon(
+                        _selectedIndex == 3 ? FontAwesomeIcons.solidComment : FontAwesomeIcons.comment,
                         color: _selectedIndex == 3 ? Colors.white : Colors.white54,
-                        width: 26,
-                        height: 26,
+                        size: 20,
                       ),
                     ),
                     label: 'Chat',

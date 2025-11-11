@@ -1,74 +1,46 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import '../models/user_model.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Sign in with email and password
-  Future<UserCredential> signInWithEmail(String email, String password) async {
+  // Register a user document with provided data
+  Future<void> registerUser(UserModel user) async {
     try {
-      return await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  // Register with email and password
-  Future<UserCredential> registerWithEmail(String email, String password) async {
-    try {
-      return await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  // Sign in with Google
-  Future<UserCredential> signInWithGoogle() async {
-    try {
-      // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      
-      // If user cancels the sign-in flow
-      if (googleUser == null) throw FirebaseAuthException(
-        code: 'sign_in_canceled',
-        message: 'Google sign in was canceled'
-      );
-
-      // Obtain the auth details from the request
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-      
-      // Create a new credential
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-
-      // Once signed in, return the UserCredential
-      return await _auth.signInWithCredential(credential);
+      final docRef = _firestore.collection('users').doc(user.uid);
+      await docRef.set(user.toMap(), SetOptions(merge: true));
     } on PlatformException catch (e) {
-      throw FirebaseAuthException(
-        code: 'platform_exception',
-        message: 'Failed to sign in with Google: ${e.message}'
-      );
+      throw Exception('Platform error during register: ${e.message}');
     } catch (e) {
-      if (e is FirebaseAuthException) {
-        rethrow;
+      rethrow;
+    }
+  }
+
+  // Login with roll number (case-insensitive) and password
+  Future<UserModel> loginWithRollNo(String rollNo, String password) async {
+    try {
+      final normalized = rollNo.trim().toLowerCase();
+      final query = await _firestore
+          .collection('users')
+          .where('rollNo', isEqualTo: normalized)
+          .limit(1)
+          .get();
+
+      if (query.docs.isEmpty) {
+        throw Exception('User not found');
       }
-      throw FirebaseAuthException(
-        code: 'google_sign_in_failed',
-        message: 'Failed to sign in with Google: $e'
-      );
+
+      final data = query.docs.first.data();
+      final user = UserModel.fromMap({...data, 'uid': query.docs.first.id});
+
+      if ((user.password ?? '') != password) {
+        throw Exception('Invalid credentials');
+      }
+
+      return user;
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -89,19 +61,12 @@ class AuthService {
     try {
       final doc = await _firestore.collection('users').doc(uid).get();
       if (doc.exists) {
-        return UserModel.fromMap(doc.data()!..['uid'] = uid);
+        final map = doc.data();
+        if (map == null) return null;
+        map['uid'] = uid;
+        return UserModel.fromMap(map);
       }
       return null;
-    } catch (e) {
-      rethrow;
-    }
-  }
-
-  // Sign out
-  Future<void> signOut() async {
-    try {
-      await _googleSignIn.signOut();
-      await _auth.signOut();
     } catch (e) {
       rethrow;
     }

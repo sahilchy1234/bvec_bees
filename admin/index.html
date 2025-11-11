@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BVEC Bees Admin</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1>BVEC Bees Admin</h1>
+    </div>
+  </header>
+  <main>
+    <section class="controls">
+      <button id="refreshBtn">Refresh</button>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <h2>Pending Verifications</h2>
+        <input type="search" id="pending-search" placeholder="Search pending..." />
+      </div>
+      <div id="pending-list" class="card-list"></div>
+      <div id="pending-loading" class="loading">Loading...</div>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <h2>Verified Users</h2>
+        <input type="search" id="verified-search" placeholder="Search verified..." />
+      </div>
+      <div id="verified-list" class="card-list"></div>
+      <div id="verified-loading" class="loading">Loading...</div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

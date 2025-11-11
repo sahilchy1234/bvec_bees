@@ -14,6 +14,41 @@ class StorageService {
     _storage.setMaxUploadRetryTime(const Duration(seconds: 30));
   }
 
+  Future<String> uploadIdCard(String userId, File imageFile) async {
+    try {
+      if (!imageFile.existsSync()) {
+        throw Exception('Image file does not exist');
+      }
+
+      final File compressedFile = await _compressImage(imageFile);
+      final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}${path.extension(compressedFile.path)}';
+      final String filePath = 'id_cards/$fileName';
+
+      final ref = _storage.ref().child(filePath);
+      final metadata = SettableMetadata(
+        contentType: 'image/${path.extension(compressedFile.path).replaceFirst('.', '')}',
+        customMetadata: {'userId': userId},
+        cacheControl: 'public, max-age=31536000',
+      );
+
+      final uploadTask = ref.putFile(compressedFile, metadata);
+      final snapshot = await uploadTask.whenComplete(() {});
+      if (snapshot.state == TaskState.success) {
+        final downloadUrl = await snapshot.ref.getDownloadURL();
+        _urlCache[filePath] = downloadUrl;
+        if (compressedFile.path != imageFile.path) {
+          await compressedFile.delete();
+        }
+        return downloadUrl;
+      } else {
+        throw Exception('Upload failed: ${snapshot.state}');
+      }
+    } catch (e) {
+      debugPrint('Error in uploadIdCard for $userId: $e');
+      throw Exception('Failed to upload ID card: $e');
+    }
+  }
+
   Future<String> uploadProfileImage(String userId, File imageFile) async {
     try {
       if (!imageFile.existsSync()) {

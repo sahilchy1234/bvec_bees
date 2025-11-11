@@ -3,20 +3,28 @@ class UserModel {
   final String email;
   final String? name;
   final String? avatarUrl;
-  final DateTime? dateOfBirth;
-  final String? mobileNumber;
+  final String? idCardUrl;
   final String? rollNo;
-  final bool isProfileComplete;
+  final String? semester;
+  final String? branch;
+  final DateTime? birthdate;
+  final String? gender;
+  final bool isVerified;
+  final String? password;
 
   UserModel({
     required this.uid,
     required this.email,
     this.name,
     this.avatarUrl,
-    this.dateOfBirth,
-    this.mobileNumber,
+    this.idCardUrl,
     this.rollNo,
-    this.isProfileComplete = false,
+    this.semester,
+    this.branch,
+    this.birthdate,
+    this.gender,
+    this.isVerified = false,
+    this.password,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -25,12 +33,14 @@ class UserModel {
       email: map['email'] ?? '',
       name: map['name'],
       avatarUrl: map['avatarUrl'],
-      dateOfBirth: map['dateOfBirth'] != null 
-          ? DateTime.fromMillisecondsSinceEpoch(map['dateOfBirth']) 
-          : null,
-      mobileNumber: map['mobileNumber'],
+      idCardUrl: map['idCardUrl'],
       rollNo: map['rollNo'],
-      isProfileComplete: map['isProfileComplete'] ?? false,
+      semester: map['semester'],
+      branch: map['branch'],
+      birthdate: map['birthdate'] != null ? DateTime.parse(map['birthdate']) : null,
+      gender: map['gender'],
+      isVerified: map['isVerified'] ?? false,
+      password: map['password'],
     );
   }
 
@@ -40,10 +50,14 @@ class UserModel {
       'email': email,
       'name': name,
       'avatarUrl': avatarUrl,
-      'dateOfBirth': dateOfBirth?.millisecondsSinceEpoch,
-      'mobileNumber': mobileNumber,
+      'idCardUrl': idCardUrl,
       'rollNo': rollNo,
-      'isProfileComplete': isProfileComplete,
+      'semester': semester,
+      'branch': branch,
+      'birthdate': birthdate?.toIso8601String(),
+      'gender': gender,
+      'isVerified': isVerified,
+      'password': password,
     };
   }
 }
