@@ -28,12 +28,15 @@ void main() async {
   });
   final prefs = await SharedPreferences.getInstance();
   final pending = prefs.getBool('pending_verification') ?? false;
-  runApp(MyApp(startPending: pending));
+  final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;  
+  runApp(MyApp(startPending: pending, isLoggedIn: isLoggedIn));  
+
 }
 
 class MyApp extends StatelessWidget {
   final bool startPending;
-  const MyApp({super.key, required this.startPending});
+  final bool isLoggedIn;  
+  const MyApp({super.key, required this.startPending, required this.isLoggedIn});  
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +46,11 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: startPending ? const PendingVerificationPage() : const LoginPage(),
+      home: isLoggedIn 
+          ? const HomePage()  
+          : (startPending 
+              ? const PendingVerificationPage() 
+              : const LoginPage()),
       routes: {
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
@@ -53,5 +60,3 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-

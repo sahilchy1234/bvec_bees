@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/rendering.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/auth_service.dart';
+import '../models/user_model.dart';
+import 'feed_page.dart';
+import 'profile_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,13 +18,150 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  late ScrollController _scrollController;
+  bool _showAppBar = true;
+  double _lastOffset = 0.0;
+  double _accumulatedDelta = 0.0;
+  static const double _toggleThreshold = 24.0; // pixels
+  final AuthService _authService = AuthService();
+  late Future<UserModel?> _userFuture;
 
-  final List<Widget> _pages = [
-    const _HomeContent(),
-    const _ClubsContent(),
-    const _DatingContent(),
-    const _ChatContent(),
-  ];
+  Widget _pageFor(int index) {
+    switch (index) {
+      case 0:
+        return FutureBuilder<UserModel?>(
+          future: _userFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.yellow),
+              );
+            }
+
+            final profile = snapshot.data;
+
+            final userId = profile?.uid ?? 'unknown';
+            final userName = profile?.name ?? 'User';
+            final userImage = profile?.avatarUrl ?? '';
+            final userEmail = profile?.email ?? '';
+
+            return FeedPage(
+              scrollController: _scrollController,
+              currentUserId: userId,
+              currentUserName: userName,
+              currentUserImage: userImage,
+              currentUserEmail: userEmail,
+              onRefreshUser: () {
+                setState(() {
+                  _userFuture = _loadCurrentUser();
+                });
+              },
+            );
+          },
+        );
+      case 1:
+        return _ClubsContent(scrollController: _scrollController);
+      case 2:
+        return _DatingContent(scrollController: _scrollController);
+      case 3:
+      default:
+        return FutureBuilder<String>(
+          future: SharedPreferences.getInstance().then((prefs) => 
+            prefs.getString('current_user_uid') ?? ''),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.yellow),
+              );
+            }
+            return ProfilePage(
+              userId: snapshot.data ?? '',
+            );
+          },
+        );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_onScroll);
+    _userFuture = _loadCurrentUser();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<UserModel?> _loadCurrentUser() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString('current_user_uid');
+      
+      if (uid == null || uid.isEmpty) {
+        print('No user UID found in SharedPreferences');
+        return null;
+      }
+
+      print('Loading user profile for UID: $uid');
+      final profile = await _authService.getUserProfile(uid);
+      
+      if (profile != null) {
+        print('Profile loaded successfully: ${profile.name}');
+        return profile;
+      }
+
+      print('No profile found in Firestore, using cached data');
+      // Fallback to cached data from SharedPreferences
+      return UserModel(
+        uid: uid,
+        email: prefs.getString('current_user_email') ?? '',
+        name: prefs.getString('current_user_name') ?? 'User',
+        avatarUrl: prefs.getString('current_user_avatar'),
+        idCardUrl: null,
+        rollNo: prefs.getString('last_roll'),
+        semester: null,
+        branch: null,
+        birthdate: null,
+        gender: null,
+        isVerified: prefs.getBool('isLoggedIn') ?? false,
+        password: null,
+      );
+    } catch (e) {
+      print('Error loading user: $e');
+      return null;
+    }
+  }
+
+  void _onScroll() {
+    final current = _scrollController.position.pixels;
+    final delta = current - _lastOffset;
+
+    // Accumulate scroll delta with direction. Positive = scrolling down, Negative = up
+    if (delta > 0) {
+      _accumulatedDelta = (_accumulatedDelta + delta).clamp(-_toggleThreshold, 4 * _toggleThreshold);
+      if (_accumulatedDelta > _toggleThreshold && _showAppBar) {
+        setState(() {
+          _showAppBar = false;
+          _accumulatedDelta = 0;
+        });
+      }
+    } else if (delta < 0) {
+      _accumulatedDelta = (_accumulatedDelta + delta).clamp(-4 * _toggleThreshold, _toggleThreshold);
+      if (_accumulatedDelta < -_toggleThreshold && !_showAppBar) {
+        setState(() {
+          _showAppBar = true;
+          _accumulatedDelta = 0;
+        });
+      }
+    }
+
+    _lastOffset = current;
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -30,42 +173,77 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              backgroundColor: Colors.black,
-              floating: true,
-              snap: true,
-              elevation: 0,
-              title: Row(
-                children: [
-                  const Icon(Icons.hexagon_rounded, color: Colors.white, size: 32),
-                  const SizedBox(width: 12),
-                  Text(
-                    'BVEC Bees',
-                    style: GoogleFonts.dancingScript(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.notifications_outlined),
-                  color: Colors.white,
-                  onPressed: () {
-                    // Handle notification tap
-                  },
-                ),
-                const SizedBox(width: 8),
-              ],
+      appBar: null,
+      body: Stack(
+        children: [
+          // Content underneath
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 72),
+              child: _pageFor(_selectedIndex),
             ),
-          ];
-        },
-        body: _pages[_selectedIndex],
+          ),
+          // Animated top bar overlay
+          SafeArea(
+            bottom: false,
+            child: AnimatedSlide(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              offset: _showAppBar ? const Offset(0, 0) : const Offset(0, -1),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                opacity: _showAppBar ? 1 : 0,
+                child: Container(
+                  height: 56,
+                  color: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Text(
+                          'Beezy',
+                          style: GoogleFonts.dancingScript(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const FaIcon(FontAwesomeIcons.heart, size: 18),
+                            color: Colors.white,
+                            onPressed: () {},
+                            tooltip: 'Likes',
+                          ),
+                          IconButton(
+                            icon: const FaIcon(FontAwesomeIcons.comment, size: 18),
+                            color: Colors.white,
+                            onPressed: () {},
+                            tooltip: 'Messages',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.notifications_outlined, size: 22),
+                            color: Colors.white,
+                            onPressed: () {},
+                            tooltip: 'Notifications',
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.only(bottom: 0, left: 0, right: 0), // Padding outside nav bar
@@ -133,12 +311,12 @@ class _HomePageState extends State<HomePage> {
                     icon: Padding(
                       padding: const EdgeInsets.all(4.0),
                       child: FaIcon(
-                        _selectedIndex == 3 ? FontAwesomeIcons.solidComment : FontAwesomeIcons.comment,
+                        _selectedIndex == 3 ? FontAwesomeIcons.solidUser : FontAwesomeIcons.user,
                         color: _selectedIndex == 3 ? Colors.white : Colors.white54,
                         size: 20,
                       ),
                     ),
-                    label: 'Chat',
+                    label: 'Profile',
                   ),
                 ],
                 currentIndex: _selectedIndex,
@@ -152,35 +330,16 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _HomeContent extends StatelessWidget {
-  const _HomeContent();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 100), // Add padding for nav bar
-      itemCount: 20, // Demo items to show scrolling
-      itemBuilder: (context, index) {
-        return Container(
-          color: Colors.black,
-          padding: const EdgeInsets.all(20),
-          child: Text(
-            index == 0 ? 'Home' : 'Scroll Item $index',
-            style: const TextStyle(color: Colors.white, fontSize: 24),
-          ),
-        );
-      },
-    );
-  }
-}
-
 class _ClubsContent extends StatelessWidget {
-  const _ClubsContent();
+  final ScrollController scrollController;
+
+  const _ClubsContent({required this.scrollController});
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 100),
+      controller: scrollController,
+      padding: const EdgeInsets.only(bottom: 100, top: 12, left: 16, right: 16),
       itemCount: 20,
       itemBuilder: (context, index) {
         return Container(
@@ -197,12 +356,15 @@ class _ClubsContent extends StatelessWidget {
 }
 
 class _DatingContent extends StatelessWidget {
-  const _DatingContent();
+  final ScrollController scrollController;
+
+  const _DatingContent({required this.scrollController});
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 100),
+      controller: scrollController,
+      padding: const EdgeInsets.only(bottom: 100, top: 12, left: 16, right: 16),
       itemCount: 20,
       itemBuilder: (context, index) {
         return Container(
@@ -219,12 +381,15 @@ class _DatingContent extends StatelessWidget {
 }
 
 class _ChatContent extends StatelessWidget {
-  const _ChatContent();
+  final ScrollController scrollController;
+
+  const _ChatContent({required this.scrollController});
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 100),
+      controller: scrollController,
+      padding: const EdgeInsets.only(bottom: 100, top: 12, left: 16, right: 16),
       itemCount: 20,
       itemBuilder: (context, index) {
         return Container(

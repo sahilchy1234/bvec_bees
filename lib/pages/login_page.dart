@@ -31,8 +31,14 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('last_roll', (user.rollNo ?? '').toLowerCase());
+      await prefs.setString('current_user_uid', user.uid);
+      await prefs.setString('current_user_name', user.name ?? 'User');
+      await prefs.setString('current_user_email', user.email);
+      await prefs.setString('current_user_avatar', user.avatarUrl ?? '');
+      
       if (user.isVerified) {
         await prefs.setBool('pending_verification', false);
+        await prefs.setBool('isLoggedIn', true);  
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         await prefs.setBool('pending_verification', true);

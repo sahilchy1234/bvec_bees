@@ -21,6 +21,7 @@ class _VerificationCompletePageState extends State<VerificationCompletePage> {
   Future<void> _goHomeAfterDelay() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('pending_verification', false);
+    await prefs.setBool('isLoggedIn', true);
 
     await Future.delayed(const Duration(seconds: 3));
     if (!mounted) return;

@@ -105,6 +105,10 @@ class _RegisterPageState extends State<RegisterPage> {
       if (!mounted) return;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('last_roll', normalizedRoll);
+      await prefs.setString('current_user_uid', user.uid);
+      await prefs.setString('current_user_name', user.name ?? 'User');
+      await prefs.setString('current_user_email', user.email);
+      await prefs.setString('current_user_avatar', user.avatarUrl ?? '');
       await prefs.setBool('pending_verification', true);
       Navigator.pushReplacement(
         context,
