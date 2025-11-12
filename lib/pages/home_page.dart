@@ -8,6 +8,10 @@ import '../services/auth_service.dart';
 import '../models/user_model.dart';
 import 'feed_page.dart';
 import 'profile_page.dart';
+import 'search_page.dart';
+import 'conversations_page.dart';
+import 'swipe_page.dart';
+import 'matches_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -62,7 +66,7 @@ class _HomePageState extends State<HomePage> {
       case 1:
         return _ClubsContent(scrollController: _scrollController);
       case 2:
-        return _DatingContent(scrollController: _scrollController);
+        return SwipePage(scrollController: _scrollController);
       case 3:
       default:
         return FutureBuilder<String>(
@@ -217,6 +221,19 @@ class _HomePageState extends State<HomePage> {
                       Row(
                         children: [
                           IconButton(
+                            icon: const Icon(Icons.search, size: 25),
+                            color: Colors.white,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const SearchPage(),
+                                ),
+                              );
+                            },
+                            tooltip: 'Search',
+                          ),
+                          IconButton(
                             icon: const FaIcon(FontAwesomeIcons.heart, size: 18),
                             color: Colors.white,
                             onPressed: () {},
@@ -225,15 +242,28 @@ class _HomePageState extends State<HomePage> {
                           IconButton(
                             icon: const FaIcon(FontAwesomeIcons.comment, size: 18),
                             color: Colors.white,
-                            onPressed: () {},
+                            onPressed: () async {
+                              final prefs = await SharedPreferences.getInstance();
+                              final currentUserId = prefs.getString('current_user_uid') ?? '';
+                              final currentUserName = prefs.getString('current_user_name') ?? 'User';
+                              final currentUserImage = prefs.getString('current_user_avatar') ?? '';
+
+                              if (currentUserId.isEmpty) return;
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ConversationsPage(
+                                    currentUserId: currentUserId,
+                                    currentUserName: currentUserName,
+                                    currentUserImage: currentUserImage,
+                                  ),
+                                ),
+                              );
+                            },
                             tooltip: 'Messages',
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.notifications_outlined, size: 22),
-                            color: Colors.white,
-                            onPressed: () {},
-                            tooltip: 'Notifications',
-                          ),
+                          
                           const SizedBox(width: 4),
                         ],
                       ),
@@ -355,52 +385,3 @@ class _ClubsContent extends StatelessWidget {
   }
 }
 
-class _DatingContent extends StatelessWidget {
-  final ScrollController scrollController;
-
-  const _DatingContent({required this.scrollController});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.only(bottom: 100, top: 12, left: 16, right: 16),
-      itemCount: 20,
-      itemBuilder: (context, index) {
-        return Container(
-          color: Colors.black,
-          padding: const EdgeInsets.all(20),
-          child: Text(
-            index == 0 ? 'Dating' : 'Profile $index',
-            style: const TextStyle(color: Colors.white, fontSize: 24),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ChatContent extends StatelessWidget {
-  final ScrollController scrollController;
-
-  const _ChatContent({required this.scrollController});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.only(bottom: 100, top: 12, left: 16, right: 16),
-      itemCount: 20,
-      itemBuilder: (context, index) {
-        return Container(
-          color: Colors.black,
-          padding: const EdgeInsets.all(20),
-          child: Text(
-            index == 0 ? 'Chat' : 'Message $index',
-            style: const TextStyle(color: Colors.white, fontSize: 24),
-          ),
-        );
-      },
-    );
-  }
-}

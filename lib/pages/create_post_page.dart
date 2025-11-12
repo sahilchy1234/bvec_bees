@@ -3,7 +3,9 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/post_service.dart';
+import '../models/user_model.dart';
 
 class CreatePostPage extends StatefulWidget {
   final String userId;
@@ -23,11 +25,20 @@ class CreatePostPage extends StatefulWidget {
 
 class _CreatePostPageState extends State<CreatePostPage> {
   final TextEditingController _contentController = TextEditingController();
+  final LayerLink _mentionLayerLink = LayerLink();
+  final GlobalKey _contentFieldKey = GlobalKey();
   final List<File> _selectedImages = [];
   final PostService _postService = PostService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = false;
-
+  
   final ImagePicker _imagePicker = ImagePicker();
+  
+  // Mention autocomplete
+  OverlayEntry? _mentionOverlay;
+  List<UserModel> _mentionSuggestions = [];
+  bool _showMentionSuggestions = false;
+  String _currentMentionQuery = '';
 
   @override
   void initState() {
@@ -39,11 +50,15 @@ class _CreatePostPageState extends State<CreatePostPage> {
     print('User Name: ${widget.userName}');
     print('User Image: ${widget.userImage}');
     print('================================');
+    
+    _contentController.addListener(_onTextChanged);
   }
 
   @override
   void dispose() {
+    _contentController.removeListener(_onTextChanged);
     _contentController.dispose();
+    _removeMentionOverlay();
     super.dispose();
   }
 
@@ -74,6 +89,239 @@ class _CreatePostPageState extends State<CreatePostPage> {
   List<String> _extractMentions(String text) {
     final regex = RegExp(r'@\w+');
     return regex.allMatches(text).map((m) => m.group(0)!).toList();
+  }
+  
+  String _mentionTokenFor(UserModel user) {
+    final rawName = user.name?.trim();
+    if (rawName != null && rawName.isNotEmpty) {
+      var sanitized = rawName.replaceAll(RegExp(r'\s+'), '_');
+      sanitized = sanitized.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '');
+      if (sanitized.isNotEmpty) {
+        return '@$sanitized';
+      }
+    }
+
+    final roll = user.rollNo?.trim();
+    if (roll != null && roll.isNotEmpty) {
+      var sanitizedRoll = roll.replaceAll(RegExp(r'\s+'), '');
+      sanitizedRoll = sanitizedRoll.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '');
+      if (sanitizedRoll.isNotEmpty) {
+        return '@${sanitizedRoll.toLowerCase()}';
+      }
+    }
+
+    return '@user';
+  }
+
+  void _onTextChanged() {
+    final text = _contentController.text;
+    final cursorPos = _contentController.selection.baseOffset;
+    
+    if (cursorPos < 0) return;
+    
+    // Find if cursor is after @
+    int atIndex = -1;
+    for (int i = cursorPos - 1; i >= 0; i--) {
+      if (text[i] == '@') {
+        atIndex = i;
+        break;
+      }
+      if (text[i] == ' ' || text[i] == '\n') {
+        break;
+      }
+    }
+    
+    if (atIndex >= 0) {
+      final query = text.substring(atIndex + 1, cursorPos);
+      if (query.isNotEmpty) {
+        debugPrint('[CreatePost] Mention query: "$query"');
+        _searchUsers(query);
+      } else {
+        _removeMentionOverlay();
+      }
+    } else {
+      _removeMentionOverlay();
+    }
+  }
+  
+  Future<void> _searchUsers(String query) async {
+    try {
+      debugPrint('[CreatePost] Searching users for "$query"');
+      final snapshot = await _firestore
+          .collection('users')
+          .where('isVerified', isEqualTo: true)
+          .limit(10)
+          .get();
+      
+      final q = query.toLowerCase();
+      final users = snapshot.docs
+          .map((doc) {
+            final data = Map<String, dynamic>.from(doc.data());
+            data['uid'] = doc.id;
+            return UserModel.fromMap(data);
+          })
+          .where((user) {
+            final name = (user.name ?? '').toLowerCase();
+            final roll = (user.rollNo ?? '').toLowerCase();
+            final nameMatches = q.length >= 3 ? name.contains(q) : name.startsWith(q);
+            final rollMatches = roll.startsWith(q);
+            return nameMatches || rollMatches;
+          })
+          .toList();
+      
+      debugPrint('[CreatePost] Found ${users.length} user(s) for "$query"');
+      if (users.isNotEmpty) {
+        setState(() {
+          _mentionSuggestions = users;
+          _currentMentionQuery = query;
+        });
+        debugPrint('[CreatePost] Showing mention overlay with ${users.length} suggestion(s)');
+        _showMentionOverlay();
+      } else {
+        debugPrint('[CreatePost] No users found for "$query"; removing overlay');
+        _removeMentionOverlay();
+      }
+    } catch (e) {
+      debugPrint('Error searching users: $e');
+    }
+  }
+  
+  void _showMentionOverlay() {
+    _removeMentionOverlay(clearSuggestions: false);
+    final renderBox = _contentFieldKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlay = Overlay.of(context, rootOverlay: true);
+
+    if (renderBox == null || overlay == null) {
+      debugPrint('[CreatePost] Unable to create overlay: renderBox or overlay missing');
+      return;
+    }
+
+    final size = renderBox.size;
+    debugPrint('[CreatePost] Creating overlay. TextField size: $size');
+    _mentionOverlay = OverlayEntry(
+      builder: (context) => Positioned.fill(
+        child: CompositedTransformFollower(
+          link: _mentionLayerLink,
+          showWhenUnlinked: false,
+          offset: Offset(0, size.height + 8),
+          child: Material(
+            color: Colors.transparent,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Container(
+                width: size.width,
+                constraints: const BoxConstraints(maxHeight: 220),
+                decoration: BoxDecoration(
+                  color: Colors.grey[900],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.yellow.withOpacity(0.3)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: _mentionSuggestions.length,
+                  itemBuilder: (context, index) {
+                    final user = _mentionSuggestions[index];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        radius: 20,
+                        backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                            ? NetworkImage(user.avatarUrl!)
+                            : null,
+                        backgroundColor: Colors.yellow,
+                        child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                            ? Text(
+                                (user.name ?? 'U')[0].toUpperCase(),
+                                style: GoogleFonts.poppins(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
+                      ),
+                      title: Text(
+                        user.name ?? 'Unknown',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        _mentionTokenFor(user),
+                        style: GoogleFonts.poppins(
+                          color: Colors.yellow,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      trailing: user.rollNo != null && user.rollNo!.isNotEmpty
+                          ? Text(
+                              user.rollNo!,
+                              style: GoogleFonts.poppins(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            )
+                          : null,
+                      onTap: () => _insertMention(user),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    
+    overlay.insert(_mentionOverlay!);
+  }
+  
+  void _insertMention(UserModel user) {
+    final text = _contentController.text;
+    final cursorPos = _contentController.selection.baseOffset;
+    
+    // Find @ position
+    int atIndex = -1;
+    for (int i = cursorPos - 1; i >= 0; i--) {
+      if (text[i] == '@') {
+        atIndex = i;
+        break;
+      }
+    }
+    
+    if (atIndex >= 0) {
+      final before = text.substring(0, atIndex);
+      final after = text.substring(cursorPos);
+      final mention = _mentionTokenFor(user);
+      
+      _contentController.text = '$before$mention $after';
+      _contentController.selection = TextSelection.fromPosition(
+        TextPosition(offset: before.length + mention.length + 1),
+      );
+      debugPrint('[CreatePost] Inserted mention "$mention"');
+    }
+    
+    _removeMentionOverlay();
+  }
+  
+  void _removeMentionOverlay({bool clearSuggestions = true}) {
+    _mentionOverlay?.remove();
+    _mentionOverlay = null;
+    if (clearSuggestions) {
+      setState(() {
+        _mentionSuggestions = [];
+      });
+    }
+    debugPrint('[CreatePost] Mention overlay removed');
   }
 
   Future<void> _createPost() async {
@@ -208,20 +456,26 @@ class _CreatePostPageState extends State<CreatePostPage> {
             // Content input
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                controller: _contentController,
-                maxLines: 6,
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 16,
-                ),
-                decoration: InputDecoration(
-                  hintText: "What's on your mind?",
-                  hintStyle: GoogleFonts.poppins(
-                    color: Colors.grey,
+              child: CompositedTransformTarget(
+                link: _mentionLayerLink,
+                child: Container(
+                  key: _contentFieldKey,
+                  child: TextField(
+                    controller: _contentController,
+                    maxLines: 6,
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: "What's on your mind?",
+                      hintStyle: GoogleFonts.poppins(
+                        color: Colors.grey,
+                      ),
+                      border: InputBorder.none,
+                      filled: false,
+                    ),
                   ),
-                  border: InputBorder.none,
-                  filled: false,
                 ),
               ),
             ),

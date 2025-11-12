@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:characters/characters.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
 import '../pages/comments_page.dart';
+import '../pages/trending_page.dart';
+import '../pages/profile_page.dart';
 
 class PostCard extends StatefulWidget {
   final Post post;
@@ -495,36 +499,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
           // Content
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.post.content,
-                  style: GoogleFonts.poppins(
-                    color: Colors.white,
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
-                if (widget.post.hashtags.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Wrap(
-                      spacing: 8,
-                      children: widget.post.hashtags
-                          .map((tag) => Text(
-                                tag,
-                                style: GoogleFonts.poppins(
-                                  color: Colors.yellow,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ))
-                          .toList(),
-                    ),
-                  ),
-              ],
-            ),
+            child: _buildContentWithHashtags(),
           ),
           // Images
           if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
@@ -675,6 +650,147 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildContentWithHashtags() {
+    final spans = <InlineSpan>[];
+    final text = widget.post.content;
+    final combinedPattern = RegExp(r'(#\w+|@\w+)');
+    int lastMatchEnd = 0;
+
+    for (final match in combinedPattern.allMatches(text)) {
+      // Add text before match
+      if (match.start > lastMatchEnd) {
+        spans.add(TextSpan(
+          text: text.substring(lastMatchEnd, match.start),
+          style: GoogleFonts.poppins(
+            color: Colors.white,
+            fontSize: 14,
+            height: 1.5,
+          ),
+        ));
+      }
+
+      final matchText = match.group(0)!;
+      final isHashtag = matchText.startsWith('#');
+      final isMention = matchText.startsWith('@');
+
+      if (isHashtag) {
+        // Add clickable hashtag
+        spans.add(TextSpan(
+          text: matchText,
+          style: GoogleFonts.poppins(
+            color: Colors.yellow,
+            fontSize: 14,
+            height: 1.5,
+            fontWeight: FontWeight.w600,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => TrendingPage(hashtag: matchText),
+                ),
+              );
+            },
+        ));
+      } else if (isMention) {
+        // Render mention as a pill chip (yellow background) and make it clickable
+        // Debug: log mention chip rendering
+        debugPrint('[PostCard] Rendering mention chip for: $matchText');
+        spans.add(WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: InkWell(
+              onTap: () async {
+                debugPrint('[PostCard] Mention tapped: $matchText');
+                final token = matchText.substring(1);
+                try {
+                  // Try rollNo (stored normalized to lowercase)
+                  var qs = await FirebaseFirestore.instance
+                      .collection('users')
+                      .where('rollNo', isEqualTo: token.toLowerCase())
+                      .limit(1)
+                      .get();
+
+                  if (qs.docs.isEmpty) {
+                    // Fallback to name match
+                    final mentionName = token.replaceAll('_', ' ');
+                    qs = await FirebaseFirestore.instance
+                        .collection('users')
+                        .where('name', isEqualTo: mentionName)
+                        .limit(1)
+                        .get();
+                  }
+
+                  if (qs.docs.isNotEmpty && mounted) {
+                    final userId = qs.docs.first.id;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProfilePage(userId: userId),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  debugPrint('Error finding mentioned user: $e');
+                }
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.yellow,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  matchText,
+                  style: GoogleFonts.poppins(
+                    color: Colors.black,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            ),
+          ),
+        ));
+      }
+
+      lastMatchEnd = match.end;
+    }
+
+    // Add remaining text
+    if (lastMatchEnd < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastMatchEnd),
+        style: GoogleFonts.poppins(
+          color: Colors.white,
+          fontSize: 14,
+          height: 1.5,
+        ),
+      ));
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: GoogleFonts.poppins(
+          color: Colors.white,
+          fontSize: 14,
+          height: 1.5,
+        ),
+        children: spans,
+      ),
+      textAlign: TextAlign.start,
+      softWrap: true,
     );
   }
 

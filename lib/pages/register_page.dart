@@ -24,6 +24,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   DateTime? _selectedBirthdate;
+  String? _selectedGender;
   File? _avatarFile;
   File? _idCardFile;
   final _picker = ImagePicker();
@@ -55,6 +56,18 @@ class _RegisterPageState extends State<RegisterPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Please upload avatar and ID card'),
+          backgroundColor: Colors.grey.shade800,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
+    if (_selectedGender == null || _selectedGender!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please select a gender'),
           backgroundColor: Colors.grey.shade800,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -95,7 +108,7 @@ class _RegisterPageState extends State<RegisterPage> {
         semester: _semesterController.text.trim(),
         branch: _branchController.text.trim(),
         birthdate: _selectedBirthdate,
-        gender: null,
+        gender: _selectedGender,
         isVerified: false,
         password: _passwordController.text,
       );
@@ -385,6 +398,37 @@ class _RegisterPageState extends State<RegisterPage> {
                                   onTap: () => _selectBirthdate(context),
                                   validator: (v) =>
                                       (v == null || v.isEmpty) ? 'Required' : null,
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Gender
+                                _buildDropdown(
+                                  value: _selectedGender,
+                                  label: 'Gender',
+                                  icon: Icons.wc_outlined,
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'Male',
+                                      child: Text('Male'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Female',
+                                      child: Text('Female'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Non-binary',
+                                      child: Text('Non-binary'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Prefer not to say',
+                                      child: Text('Prefer not to say'),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedGender = value;
+                                    });
+                                  },
                                 ),
                                 const SizedBox(height: 16),
 
