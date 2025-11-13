@@ -61,6 +61,8 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   late Animation<Offset> _swipeAnimation;
   late AnimationController _scaleController;
   late Animation<double> _scaleAnimation;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -84,6 +86,14 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
     );
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
+    );
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.06).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
     _loadMatches();
@@ -245,6 +255,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   void dispose() {
     _swipeController.dispose();
     _scaleController.dispose();
+    _pulseController.dispose();
     _hottedSubscription?.cancel();
     _matchesSubscription?.cancel();
     super.dispose();
@@ -636,7 +647,14 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
             ),
           ),
 
-          Expanded(child: _buildTabContent()),
+          Expanded(
+            child: RefreshIndicator(
+              color: Colors.yellow,
+              backgroundColor: Colors.black,
+              onRefresh: _refreshCurrentTab,
+              child: _buildTabContent(),
+            ),
+          ),
         ],
       ),
     );
@@ -647,7 +665,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
       case _HotNotTab.feed:
         return _isLoading
             ? const Center(child: CircularProgressIndicator(color: Colors.yellow))
-            : _buildFeedContent();
+            : _wrapFillRemaining(_buildFeedContent());
       case _HotNotTab.hotted:
         return _isLoadingHotted
             ? const Center(child: CircularProgressIndicator(color: Colors.yellow))
@@ -665,23 +683,24 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
 
   Widget _buildHottedContent() {
     if (_currentUserId.isEmpty) {
-      return _buildPlaceholder(
+      return _wrapScrollable(_buildPlaceholder(
         icon: Icons.local_fire_department_outlined,
         title: 'Please login to view your hotted list',
         subtitle: 'Sign in to continue swiping!',
-      );
+      ));
     }
 
     if (_hottedUsers.isEmpty) {
-      return _buildPlaceholder(
+      return _wrapScrollable(_buildPlaceholder(
         icon: Icons.local_fire_department_outlined,
         title: 'No hotted users yet',
         subtitle: 'Tap Hot on profiles you love and see them here.',
-      );
+      ));
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: _hottedUsers.length,
       itemBuilder: (context, index) {
         final user = _hottedUsers[index];
@@ -767,23 +786,24 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
 
   Widget _buildMatchesContent() {
     if (_currentUserId.isEmpty) {
-      return _buildPlaceholder(
+      return _wrapScrollable(_buildPlaceholder(
         icon: Icons.favorite_border,
         title: 'Please login to see your matches',
         subtitle: 'Sign in and keep swiping to meet people.',
-      );
+      ));
     }
 
     if (_matches.isEmpty) {
-      return _buildPlaceholder(
+      return _wrapScrollable(_buildPlaceholder(
         icon: Icons.favorite_border,
         title: 'No matches yet',
         subtitle: 'Swipe Hot to increase your chances!',
-      );
+      ));
     }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
+      physics: const AlwaysScrollableScrollPhysics(),
       itemCount: _matches.length,
       itemBuilder: (context, index) {
         final match = _matches[index];
@@ -864,17 +884,18 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
 
   Widget _buildLeaderboardContent() {
     if (_leaderboardUsers.isEmpty) {
-      return _buildPlaceholder(
+      return _wrapScrollable(_buildPlaceholder(
         icon: Icons.emoji_events_outlined,
         title: 'Leaderboard coming soon',
         subtitle: 'Be the first to make it to the Top 10!',
-      );
+      ));
     }
 
     final maxHot = (_leaderboardUsers.first.hotCount).clamp(1, 1 << 31);
 
     return ListView(
       padding: const EdgeInsets.all(16),
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
         if (_leaderboardUsers.length >= 3)
           Container(
@@ -911,68 +932,88 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   }
 
   Widget _buildPodiumTile(int index, {bool highlight = false}) {
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: highlight ? 86 : 74,
-              height: highlight ? 86 : 74,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [base.withOpacity(0.35), Colors.transparent],
-                ),
-              ),
-            ),
-            _buildUserAvatar(user.avatarUrl ?? '', user.name ?? 'User', radius: highlight ? 36 : 32),
-            Positioned(
-              bottom: 4,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: base,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text('#$rank', style: GoogleFonts.poppins(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          user.name ?? 'Unknown',
-          style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: highlight ? 14 : 13),
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: 70,
-          height: height * 0.2,
-          decoration: BoxDecoration(
-            color: Colors.grey[850],
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(8),
-              topRight: Radius.circular(8),
-            ),
-            border: Border.all(color: base.withOpacity(0.35)),
+    final user = _leaderboardUsers[index];
+    final heights = [120.0, 100.0, 80.0];
+    final rank = index + 1;
+    final height = highlight ? 140.0 : heights[index == 0 ? 0 : (index == 1 ? 1 : 2)];
+    final Color base = rank == 1
+        ? Colors.yellow
+        : rank == 2
+            ? Colors.grey[400]!
+            : Colors.brown[300]!;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProfilePage(userId: user.uid),
           ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+        );
+      },
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            alignment: Alignment.center,
             children: [
-              Icon(Icons.local_fire_department, size: 14, color: base),
-              const SizedBox(width: 4),
-              Text('${user.hotCount}', style: GoogleFonts.poppins(color: base, fontWeight: FontWeight.w700, fontSize: 12)),
+              Container(
+                width: highlight ? 86 : 74,
+                height: highlight ? 86 : 74,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [base.withOpacity(0.35), Colors.transparent],
+                  ),
+                ),
+              ),
+              _buildUserAvatar(user.avatarUrl ?? '', user.name ?? 'User', radius: highlight ? 36 : 32),
+              Positioned(
+                bottom: 4,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: base,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text('#$rank', style: GoogleFonts.poppins(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
+                ),
+              ),
             ],
           ),
-        ),
-      ],
-    ),
-  );
-}
+          const SizedBox(height: 8),
+          Text(
+            user.name ?? 'Unknown',
+            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: highlight ? 14 : 13),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: 70,
+            height: height * 0.2,
+            decoration: BoxDecoration(
+              color: Colors.grey[850],
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8),
+                topRight: Radius.circular(8),
+              ),
+              border: Border.all(color: base.withOpacity(0.35)),
+            ),
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.local_fire_department, size: 14, color: base),
+                const SizedBox(width: 4),
+                Text('${user.hotCount}', style: GoogleFonts.poppins(color: base, fontWeight: FontWeight.w700, fontSize: 12)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
 Widget _buildLeaderboardRow(int index, int maxHot) {
   final user = _leaderboardUsers[index];
@@ -1099,32 +1140,32 @@ Widget _buildLeaderboardRow(int index, int maxHot) {
   );
 }
 
-// ... rest of your code ...
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 64, color: Colors.grey[700]),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: GoogleFonts.poppins(color: Colors.grey, fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: GoogleFonts.poppins(color: Colors.grey, fontSize: 14),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
+Widget _buildPlaceholder({
+  required IconData icon,
+  required String title,
+  required String subtitle,
+}) {
+  return Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 64, color: Colors.grey[700]),
+        const SizedBox(height: 16),
+        Text(
+          title,
+          style: GoogleFonts.poppins(color: Colors.grey, fontSize: 16),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          subtitle,
+          style: GoogleFonts.poppins(color: Colors.grey, fontSize: 14),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    ),
+  );
+}
 
   Future<void> _handleUnhot(UserModel user) async {
     if (_unhottingUserIds.contains(user.uid)) return;
@@ -1270,7 +1311,7 @@ Widget _buildLeaderboardRow(int index, int maxHot) {
 
         // Action buttons
         Positioned(
-          bottom: 40,
+          bottom: 16,
           left: 0,
           right: 0,
           child: AnimatedBuilder(
@@ -1291,15 +1332,16 @@ Widget _buildLeaderboardRow(int index, int maxHot) {
                 _buildActionButton(
                   icon: Icons.close,
                   color: Colors.redAccent,
-                  label: 'Not',
+                  label: '',
                   onPressed: () => _triggerSwipe(false),
                 ),
-                const SizedBox(width: 40),
+                const SizedBox(width: 28),
                 _buildActionButton(
                   icon: Icons.local_fire_department,
-                  color: Colors.greenAccent,
-                  label: 'Hot',
+                  color: Colors.yellow,
+                  label: '',
                   onPressed: () => _triggerSwipe(true),
+                  usePulse: true,
                 ),
               ],
             ),
@@ -1358,15 +1400,15 @@ Widget _buildLeaderboardRow(int index, int maxHot) {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    if (user.rollNo != null)
-                      Text(
-                        user.rollNo!,
-                        style: GoogleFonts.poppins(
-                          color: Colors.grey,
-                          fontSize: 16,
-                        ),
-                      ),
+                    // const SizedBox(height: 8),
+                    // if (user.rollNo != null)
+                    //   Text(
+                    //     user.rollNo!,
+                    //     style: GoogleFonts.poppins(
+                    //       color: Colors.grey,
+                    //       fontSize: 16,
+                    //     ),
+                    //   ),
                     const SizedBox(height: 4),
                     if (user.branch != null)
                       Text(
@@ -1399,6 +1441,7 @@ Widget _buildLeaderboardRow(int index, int maxHot) {
     required Color color,
     required String label,
     required VoidCallback onPressed,
+    bool usePulse = false,
   }) {
     return GestureDetector(
       onTapDown: (_) => _scaleController.forward(),
@@ -1411,45 +1454,103 @@ Widget _buildLeaderboardRow(int index, int maxHot) {
         mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedBuilder(
-            animation: _scaleAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _scaleAnimation.value,
-                child: child,
+            animation: _pulseController,
+            builder: (context, pulseChild) {
+              final pulseScale = usePulse ? _pulseAnimation.value : 1.0;
+              return AnimatedBuilder(
+                animation: _scaleAnimation,
+                builder: (context, scaleChild) {
+                  return Transform.scale(
+                    scale: _scaleAnimation.value * pulseScale,
+                    child: scaleChild,
+                  );
+                },
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    // boxShadow: [
+                      // BoxShadow(
+                        // color: color.withOpacity(0.35),
+                        // blurRadius: 14,
+                        // offset: const Offset(0, 6),
+                      // ),
+                    // ],
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Colors.black,
+                    size: 26,
+                  ),
+                ),
               );
             },
-            child: Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Icon(
-                icon,
-                color: Colors.black,
-                size: 34,
-              ),
-            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             label,
             style: GoogleFonts.poppins(
               color: Colors.white,
               fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontSize: 13,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _refreshCurrentTab() async {
+    switch (_selectedTab) {
+      case _HotNotTab.feed:
+        await _loadMatches();
+        break;
+      case _HotNotTab.hotted:
+        setState(() {
+          _hasLoadedHotted = false;
+        });
+        await _loadHottedUsers();
+        break;
+      case _HotNotTab.matches:
+        setState(() {
+          _hasLoadedMatches = false;
+        });
+        await _loadMatchesList();
+        break;
+      case _HotNotTab.leaderboard:
+        setState(() {
+          _hasLoadedLeaderboard = false;
+        });
+        await _loadLeaderboard();
+        break;
+    }
+  }
+
+  Widget _wrapScrollable(Widget child) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _wrapFillRemaining(Widget child) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: child,
+        ),
+      ],
     );
   }
 }

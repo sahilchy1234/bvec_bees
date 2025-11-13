@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:characters/characters.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
+import '../services/feed_cache_service.dart';
 import '../widgets/post_card.dart';
+import '../widgets/cached_network_image_widget.dart';
 import 'create_post_page.dart';
 import 'comments_page.dart';
 import 'profile_page.dart';
@@ -31,14 +35,26 @@ class FeedPage extends StatefulWidget {
   State<FeedPage> createState() => _FeedPageState();
 }
 
-class _FeedPageState extends State<FeedPage> {
+class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<FeedPage> {
   final PostService _postService = PostService();
-  late Future<List<Post>> _feedFuture;
+  final FeedCacheService _cacheService = FeedCacheService.instance;
+  final List<Post> _posts = [];
+  final ScrollController _scrollController = ScrollController();
+  
+  bool _isLoading = false;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  DocumentSnapshot? _lastDocument;
+  String? _error;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
-    _feedFuture = _postService.getFeed();
+    _scrollController.addListener(_onScroll);
+    _loadInitialFeed();
     
     // Debug: Print user data
     print('=== FeedPage User Data ===');
@@ -49,52 +65,165 @@ class _FeedPageState extends State<FeedPage> {
     print('========================');
   }
 
-  void _refreshFeed() {
-    setState(() {
-      _feedFuture = _postService.getFeed();
-    });
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (!_isLoadingMore && _hasMore) {
+        _loadMorePosts();
+      }
+    }
+  }
+
+  Future<void> _loadInitialFeed() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final result = await _postService.getFeedPaginated(limit: 10, useCache: true);
+      
+      if (mounted) {
+        setState(() {
+          _posts.clear();
+          _posts.addAll(result.posts);
+          _lastDocument = result.lastDocument;
+          _hasMore = result.hasMore;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadMorePosts() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    if (mounted) {
+      setState(() {
+        _isLoadingMore = true;
+      });
+    }
+
+    try {
+      final result = await _postService.getFeedPaginated(
+        limit: 10,
+        startAfter: _lastDocument,
+        useCache: false,
+      );
+      
+      if (mounted) {
+        setState(() {
+          _posts.addAll(result.posts);
+          _lastDocument = result.lastDocument;
+          _hasMore = result.hasMore;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
+        });
+      }
+      print('Error loading more posts: $e');
+    }
+  }
+
+  Future<void> _refreshFeed() async {
+    // Clear cache and reload
+    await _cacheService.clearCache();
+    _lastDocument = null;
+    _hasMore = true;
+    await _loadInitialFeed();
     widget.onRefreshUser();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      controller: widget.scrollController,
-      padding: const EdgeInsets.only(bottom: 100, top: 12, left: 0, right: 0),
-      children: [
-        // Create post section
-        _buildCreatePostSection(),
-        const Divider(color: Colors.grey, height: 1),
-        // Feed
-        FutureBuilder<List<Post>>(
-          future: _feedFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(color: Colors.blue),
-                ),
-              );
-            }
-
-            if (snapshot.hasError) {
-              return Center(
+    super.build(context); // Required for AutomaticKeepAliveStateMixin
+    
+    return RefreshIndicator(
+      onRefresh: _refreshFeed,
+      color: Colors.yellow,
+      backgroundColor: Colors.grey[900],
+      child: CustomScrollView(
+        controller: widget.scrollController,
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // Create post section as sliver
+          SliverToBoxAdapter(
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                _buildCreatePostSection(),
+                const Divider(color: Colors.grey, height: 1),
+              ],
+            ),
+          ),
+          
+          // Feed content
+          if (_isLoading && _posts.isEmpty)
+            const SliverFillRemaining(
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.yellow),
+              ),
+            )
+          else if (_error != null && _posts.isEmpty)
+            SliverFillRemaining(
+              child: Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32),
-                  child: Text(
-                    'Error loading feed: ${snapshot.error}',
-                    style: GoogleFonts.poppins(color: Colors.white),
-                    textAlign: TextAlign.center,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Error loading feed',
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _error!,
+                        style: GoogleFonts.poppins(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _refreshFeed,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.yellow,
+                          foregroundColor: Colors.black,
+                        ),
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            }
-
-            final posts = snapshot.data ?? [];
-
-            if (posts.isEmpty) {
-              return Center(
+              ),
+            )
+          else if (_posts.isEmpty)
+            SliverFillRemaining(
+              child: Center(
                 child: Padding(
                   padding: const EdgeInsets.all(32),
                   child: Text(
@@ -106,45 +235,76 @@ class _FeedPageState extends State<FeedPage> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-              );
-            }
-
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: posts.length,
-              itemBuilder: (context, index) {
-                return PostCard(
-                  post: posts[index],
-                  currentUserId: widget.currentUserId,
-                  onDelete: _refreshFeed,
-                  onComment: () {
-                    showModalBottomSheet<void>(
-                      context: context,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (_) => CommentsPage(
-                        postId: posts[index].id,
-                        currentUserId: widget.currentUserId,
-                        currentUserName: widget.currentUserName,
-                        currentUserImage: widget.currentUserImage,
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (index < _posts.length) {
+                    return PostCard(
+                      key: ValueKey(_posts[index].id), // Add key for better performance
+                      post: _posts[index],
+                      currentUserId: widget.currentUserId,
+                      onDelete: _refreshFeed,
+                      onComment: () {
+                        showModalBottomSheet<void>(
+                          context: context,
+                          backgroundColor: Colors.transparent,
+                          isScrollControlled: true,
+                          builder: (_) => CommentsPage(
+                            postId: _posts[index].id,
+                            currentUserId: widget.currentUserId,
+                            currentUserName: widget.currentUserName,
+                            currentUserImage: widget.currentUserImage,
+                          ),
+                        );
+                      },
+                      onAuthorTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProfilePage(userId: _posts[index].authorId),
+                          ),
+                        );
+                      },
+                    );
+                  } else if (_isLoadingMore) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.yellow,
+                          strokeWidth: 2,
+                        ),
                       ),
                     );
-                  },
-                  onAuthorTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProfilePage(userId: posts[index].authorId),
+                  } else if (!_hasMore) {
+                    return Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Center(
+                        child: Text(
+                          'You\'ve reached the end of the feed!',
+                          style: GoogleFonts.poppins(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
                     );
-                  },
-                );
-              },
-            );
-          },
-        ),
-      ],
+                  }
+                  return null;
+                },
+                childCount: _posts.length + (_isLoadingMore || !_hasMore ? 1 : 0),
+              ),
+            ),
+          
+          // Bottom padding
+          const SliverPadding(
+            padding: EdgeInsets.only(bottom: 100),
+          ),
+        ],
+      ),
     );
   }
 
@@ -283,62 +443,12 @@ class _FeedPageState extends State<FeedPage> {
   }
 
   Widget _buildUserAvatar(String imageUrl, String userName, {double radius = 20}) {
-    final double size = radius * 2;
-
-    String _initials() {
-      final trimmed = userName.trim();
-      if (trimmed.isEmpty) return '?';
-      final parts = trimmed.split(RegExp(r'\s+'));
-      final letters = parts
-          .where((part) => part.isNotEmpty)
-          .map((part) => part.characters.first.toUpperCase())
-          .toList();
-      if (letters.isEmpty) return '?';
-      return letters.take(2).join();
-    }
-
-    Widget fallbackAvatar() {
-      return Container(
-        width: size,
-        height: size,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.yellow,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          _initials(),
-          style: GoogleFonts.poppins(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: radius,
-          ),
-        ),
-      );
-    }
-
-    if (imageUrl.isEmpty) {
-      return fallbackAvatar();
-    }
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.grey[900],
-      ),
-      child: ClipOval(
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => fallbackAvatar(),
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return fallbackAvatar();
-          },
-        ),
-      ),
+    return CachedCircleAvatar(
+      imageUrl: imageUrl,
+      displayName: userName,
+      radius: radius,
+      backgroundColor: Colors.yellow,
+      textColor: Colors.black,
     );
   }
 }

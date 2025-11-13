@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter/gestures.dart';
 import 'package:characters/characters.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,6 +12,7 @@ import '../services/post_service.dart';
 import '../pages/comments_page.dart';
 import '../pages/trending_page.dart';
 import '../pages/profile_page.dart';
+import 'cached_network_image_widget.dart';
 
 class PostCard extends StatefulWidget {
   final Post post;
@@ -29,6 +32,227 @@ class PostCard extends StatefulWidget {
 
   @override
   State<PostCard> createState() => _PostCardState();
+}
+
+class _ReactionsSheet extends StatefulWidget {
+  final String postId;
+  final PostService postService;
+
+  const _ReactionsSheet({required this.postId, required this.postService});
+
+  @override
+  State<_ReactionsSheet> createState() => _ReactionsSheetState();
+}
+
+class _ReactionsSheetState extends State<_ReactionsSheet> {
+  final List<_ReactionOption> _options = const [
+    _ReactionOption(key: 'all', label: 'All', emoji: '⭐', color: Colors.yellow),
+    _ReactionOption(key: 'like', label: 'Like', emoji: '👍', color: Colors.blue),
+    _ReactionOption(key: 'love', label: 'Love', emoji: '❤️', color: Colors.redAccent),
+    _ReactionOption(key: 'care', label: 'Care', emoji: '🤗', color: Colors.orangeAccent),
+    _ReactionOption(key: 'haha', label: 'Haha', emoji: '😂', color: Colors.amber),
+    _ReactionOption(key: 'wow', label: 'Wow', emoji: '😮', color: Colors.lightBlueAccent),
+    _ReactionOption(key: 'sad', label: 'Sad', emoji: '😢', color: Colors.indigoAccent),
+    _ReactionOption(key: 'angry', label: 'Angry', emoji: '😡', color: Colors.deepOrange),
+  ];
+
+  Map<String, String> _reactions = {};
+  Map<String, Map<String, dynamic>> _users = {};
+  bool _loading = true;
+  Map<String, int> _counts = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final snap = await FirebaseFirestore.instance.collection('posts').doc(widget.postId).get();
+      final data = snap.data() as Map<String, dynamic>?;
+      final reactions = Map<String, String>.from(data?['reactions'] ?? {});
+
+      final userIds = reactions.keys.toList();
+      final usersList = await widget.postService.getUsersBasicByIds(userIds);
+      final users = <String, Map<String, dynamic>>{
+        for (final u in usersList) (u['id'] as String): u,
+      };
+
+      final counts = <String, int>{};
+      counts['all'] = reactions.length;
+      for (final o in _options.where((o) => o.key != 'all')) {
+        counts[o.key] = reactions.values.where((rk) => rk == o.key).length;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _reactions = reactions;
+        _users = users;
+        _loading = false;
+        _counts = counts;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _loading = false; });
+    }
+  }
+
+  List<Map<String, dynamic>> _filtered(String key) {
+    if (key == 'all') {
+      return _reactions.keys
+          .map((uid) => {...?_users[uid], 'reaction': _reactions[uid]})
+          .where((m) => m['id'] != null)
+          .toList();
+    }
+    return _reactions.entries
+        .where((e) => e.value == key)
+        .map((e) => {...?_users[e.key], 'reaction': e.value})
+        .where((m) => m['id'] != null)
+        .toList();
+  }
+
+  int _countFor(String key) {
+    return _counts[key] ?? 0;
+  }
+
+  _ReactionOption _optionFor(String key) {
+    return _options.firstWhere((o) => o.key == key, orElse: () => _options.first);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final height = MediaQuery.of(context).size.height * 0.75;
+    return SizedBox(
+      height: height,
+      child: DefaultTabController(
+        length: _options.length,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[800],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Text(
+                    'Reactions',
+                    style: GoogleFonts.poppins(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.grey),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            TabBar(
+              isScrollable: true,
+              indicatorColor: Colors.yellow,
+              labelColor: Colors.yellow,
+              unselectedLabelColor: Colors.grey,
+              tabs: _options.map((o) => Tab(text: '${o.emoji} ${_countFor(o.key)}')).toList(),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator(color: Colors.yellow))
+                  : TabBarView(
+                      children: _options.map((o) {
+                        final items = _filtered(o.key);
+                        if (items.isEmpty) {
+                          return Center(
+                            child: Text('No reactions', style: GoogleFonts.poppins(color: Colors.grey)),
+                          );
+                        }
+                        return ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          itemCount: items.length,
+                          separatorBuilder: (_, __) => Divider(color: Colors.grey[900]),
+                          itemBuilder: (context, index) {
+                            final u = items[index];
+                            final rk = u['reaction'] as String? ?? '';
+                            final opt = _optionFor(rk);
+                            return InkWell(
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => ProfilePage(userId: u['id'] as String)),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[900],
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey[800]!),
+                                ),
+                                child: Row(
+                                  children: [
+                                    _buildAvatar(u['image'] as String? ?? '', u['name'] as String? ?? '', radius: 22),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        u['name'] as String? ?? 'User',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.poppins(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: opt.color.withOpacity(0.18),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(color: opt.color.withOpacity(0.45)),
+                                      ),
+                                      child: Text(
+                                        _emojiFor(rk),
+                                        style: const TextStyle(fontSize: 16),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
+                      }).toList(),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatar(String imageUrl, String name, {double radius = 18}) {
+    return CachedCircleAvatar(
+      imageUrl: imageUrl,
+      displayName: name,
+      radius: radius,
+      backgroundColor: Colors.yellow,
+      textColor: Colors.black,
+    );
+  }
+
+  String _emojiFor(String key) {
+    final found = _options.firstWhere((o) => o.key == key, orElse: () => const _ReactionOption(key: 'all', label: 'All', emoji: '⭐', color: Colors.yellow));
+    return found.emoji;
+  }
 }
 
 class _FloatingReactionBubble {
@@ -68,6 +292,13 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   String? _currentReaction;
   late int _totalReactions;
   final List<_FloatingReactionBubble> _floatingBubbles = [];
+  bool _pickerVisible = false;
+  late AnimationController _pickerController;
+  Timer? _pickerHideTimer;
+  int _hoveredPickerIndex = -1;
+  final GlobalKey _pickerKey = GlobalKey();
+  static const double _pickerIconSlotWidth = 44.0;
+  static const double _pickerHorizontalPadding = 10.0;
 
   final List<_ReactionOption> _reactionOptions = const [
     _ReactionOption(key: 'like', label: 'Like', emoji: '👍', color: Colors.blue),
@@ -91,6 +322,42 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     _reactionCounts = {..._createDefaultReactionCounts(), ...widget.post.reactionCounts};
     _currentReaction = widget.post.reactions[widget.currentUserId];
     _totalReactions = _reactionCounts.values.fold<int>(0, (sum, value) => sum + value);
+    _pickerController = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+  }
+
+  void _openReactionsPanel() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.black,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _ReactionsSheet(postId: widget.post.id, postService: _postService),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _hapticSelect() async {
+    // Try several haptic types for best device compatibility
+    try { await HapticFeedback.mediumImpact(); } catch (_) {}
+    try { await HapticFeedback.selectionClick(); } catch (_) {}
+    try { await HapticFeedback.vibrate(); } catch (_) {}
+    try {
+      const channel = MethodChannel('com.bvec.bees/haptics');
+      await channel.invokeMethod('vibrate', {
+        'duration': 25,
+        'amplitude': 150,
+      });
+    } catch (_) {}
+    try { await SystemSound.play(SystemSoundType.click); } catch (_) {}
   }
 
   Map<String, int> _createDefaultReactionCounts() {
@@ -169,11 +436,75 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
       _currentReaction != null ? _reactionOptionByKey[_currentReaction!] : null;
 
   void _handlePrimaryReactionTap() {
-    if (_currentReaction == 'like') {
-      _setReaction(null);
+    if (_currentReaction == 'like' || _currentReaction == "love" || _currentReaction == "care" || _currentReaction == "haha" || _currentReaction == "wow" || _currentReaction == "sad" || _currentReaction == "angry"  ) {
+        _setReaction(null);
+      // debugPrint("CLICKED");
+
+      
+
+      _currentReaction = null;
+
+      
+
     } else {
       _setReaction('like');
     }
+  }
+
+  void _showInlineReactionPicker() {
+    _pickerHideTimer?.cancel();
+    setState(() {
+      _pickerVisible = true;
+    });
+    _pickerController.forward(from: 0);
+    _pickerHideTimer = Timer(const Duration(seconds: 2), () {
+      _hideInlineReactionPicker();
+    });
+  }
+
+  void _hideInlineReactionPicker() {
+    _pickerHideTimer?.cancel();
+    if (!_pickerVisible) return;
+    _pickerController.reverse().whenComplete(() {
+      if (!mounted) return;
+      setState(() {
+        _pickerVisible = false;
+      });
+    });
+  }
+
+  int _indexFromGlobalPosition(Offset globalPosition) {
+    final box = _pickerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return -1;
+    final local = box.globalToLocal(globalPosition);
+    final dx = local.dx - _pickerHorizontalPadding;
+    final raw = (dx / _pickerIconSlotWidth).floor();
+    final idx = raw.clamp(0, _reactionOptions.length - 1);
+    return (dx < 0 || dx.isNaN || dx.isInfinite) ? -1 : idx;
+  }
+
+  void _onPickerPanStart(DragStartDetails details) {
+    _pickerHideTimer?.cancel();
+    final idx = _indexFromGlobalPosition(details.globalPosition);
+    if (idx != -1) setState(() => _hoveredPickerIndex = idx);
+  }
+
+  void _onPickerPanUpdate(DragUpdateDetails details) {
+    final idx = _indexFromGlobalPosition(details.globalPosition);
+    if (idx != -1 && idx != _hoveredPickerIndex) {
+      setState(() => _hoveredPickerIndex = idx);
+      HapticFeedback.lightImpact();
+    }
+  }
+
+  void _onPickerPanEnd(DragEndDetails details) {
+    final idx = _hoveredPickerIndex;
+    if (idx >= 0 && idx < _reactionOptions.length) {
+      _setReaction(_reactionOptions[idx].key);
+      _hapticSelect();
+    }
+    setState(() => _hoveredPickerIndex = -1);
+    _hideInlineReactionPicker();
   }
 
   void _spawnFloatingReaction(String reactionKey) {
@@ -277,7 +608,22 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
       children: [
         GestureDetector(
           onTap: _handlePrimaryReactionTap,
-          onLongPress: _showReactionPicker,
+          onLongPress: _showInlineReactionPicker,
+          onLongPressMoveUpdate: (details) {
+            if (!_pickerVisible) return;
+            _pickerHideTimer?.cancel();
+            final idx = _indexFromGlobalPosition(details.globalPosition);
+            if (idx != -1 && idx != _hoveredPickerIndex) {
+              setState(() => _hoveredPickerIndex = idx);
+            }
+          },
+          onLongPressEnd: (details) {
+            if (_pickerVisible && _hoveredPickerIndex >= 0 && _hoveredPickerIndex < _reactionOptions.length) {
+              _setReaction(_reactionOptions[_hoveredPickerIndex].key);
+            }
+            setState(() => _hoveredPickerIndex = -1);
+            _hideInlineReactionPicker();
+          },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
@@ -308,6 +654,48 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
             ),
           ),
         ),
+        if (_pickerVisible)
+          Positioned(
+            top: -70,
+            child: FadeTransition(
+              opacity: CurvedAnimation(parent: _pickerController, curve: Curves.easeOut),
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.9, end: 1.0).animate(
+                  CurvedAnimation(parent: _pickerController, curve: Curves.easeOutBack),
+                ),
+                child: Transform.translate(
+                  offset: const Offset(110, 0),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onPanStart: _onPickerPanStart,
+                    onPanUpdate: _onPickerPanUpdate,
+                    onPanEnd: _onPickerPanEnd,
+                    child: Container(
+                      key: _pickerKey,
+                      padding: const EdgeInsets.symmetric(horizontal: _pickerHorizontalPadding, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.92),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(color: Colors.grey[800]!, width: 1),
+                      ),
+                      child: AnimatedBuilder(
+                        animation: _pickerController,
+                        builder: (context, _) {
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (int i = 0; i < _reactionOptions.length; i++)
+                                _buildPickerIcon(_reactionOptions[i], i),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ..._floatingBubbles.map((bubble) {
           return AnimatedBuilder(
             animation: bubble.controller,
@@ -402,7 +790,77 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     for (final bubble in _floatingBubbles) {
       bubble.controller.dispose();
     }
+    _pickerHideTimer?.cancel();
+    _pickerController.dispose();
     super.dispose();
+  }
+
+  Widget _buildPickerIcon(_ReactionOption option, int index) {
+    final curve = CurvedAnimation(
+      parent: _pickerController,
+      curve: Interval(
+        (0.05 * index).clamp(0.0, 0.9),
+        (0.05 * index + 0.6).clamp(0.0, 1.0),
+        curve: Curves.easeOut,
+      ),
+    );
+    return AnimatedBuilder(
+      animation: curve,
+      builder: (context, child) {
+        final translateY = (1 - curve.value) * 12.0;
+        final baseScale = 0.9 + (curve.value * 0.1);
+        final isHovered = _hoveredPickerIndex == index;
+        final scale = baseScale * (isHovered ? 1.25 : 1.0);
+        return Transform.translate(
+          offset: Offset(0, -translateY),
+          child: Transform.scale(
+            scale: scale,
+            child: child,
+          ),
+        );
+      },
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _hoveredPickerIndex = index),
+        onTapCancel: () => setState(() => _hoveredPickerIndex = -1),
+        onTapUp: (_) {
+          setState(() => _hoveredPickerIndex = -1);
+          _setReaction(option.key);
+          _hapticSelect();
+          _hideInlineReactionPicker();
+        },
+        child: Container(
+          width: _pickerIconSlotWidth,
+          margin: const EdgeInsets.symmetric(horizontal: 2),
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (_hoveredPickerIndex == index)
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: option.color.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  Text(
+                    option.emoji,
+                    style: const TextStyle(fontSize: 30),
+                  ),
+                ],
+              ),
+              // Removed label beneath hovered emoji for a cleaner UI
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   String _formatTime(DateTime timestamp) {
@@ -505,43 +963,12 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
           if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: ClipRRect(
+              child: CachedNetworkImageWidget(
+                imageUrl: widget.post.imageUrls!.first,
+                width: double.infinity,
+                height: 300,
+                fit: BoxFit.cover,
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  widget.post.imageUrls!.first,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: 300,
-                  loadingBuilder: (context, child, loadingProgress) {
-                    if (loadingProgress == null) return child;
-                    return Container(
-                      height: 300,
-                      color: Colors.grey[900],
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                              : null,
-                          color: Colors.yellow,
-                        ),
-                      ),
-                    );
-                  },
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 300,
-                      color: Colors.grey[900],
-                      child: const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          color: Colors.grey,
-                          size: 48,
-                        ),
-                      ),
-                    );
-                  },
-                ),
               ),
             ),
           // Engagement stats
@@ -550,7 +977,13 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(child: _buildReactionsSummary()),
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _openReactionsPanel,
+                    child: _buildReactionsSummary(),
+                  ),
+                ),
                 Text(
                   '${widget.post.comments} comments',
                   style: GoogleFonts.poppins(
@@ -795,43 +1228,12 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   }
 
   Widget _buildUserAvatar(String imageUrl, String userName, {double radius = 20}) {
-    String _initials() {
-      final trimmed = userName.trim();
-      if (trimmed.isEmpty) return '?';
-      final parts = trimmed.split(RegExp(r'\s+'));
-      final letters = parts
-          .where((part) => part.isNotEmpty)
-          .map((part) => part.characters.first.toUpperCase())
-          .toList();
-      if (letters.isEmpty) return '?';
-      return letters.take(2).join();
-    }
-
-    Widget fallbackAvatar() {
-      return CircleAvatar(
-        radius: radius,
-        backgroundColor: Colors.yellow,
-        child: Text(
-          _initials(),
-          style: GoogleFonts.poppins(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-            fontSize: radius * 0.8,
-          ),
-        ),
-      );
-    }
-
-    if (imageUrl.isEmpty) {
-      return fallbackAvatar();
-    }
-
-    return CircleAvatar(
+    return CachedCircleAvatar(
+      imageUrl: imageUrl,
+      displayName: userName,
       radius: radius,
-      backgroundColor: Colors.grey[900],
-      backgroundImage: NetworkImage(imageUrl),
-      onBackgroundImageError: (_, __) {},
-      child: null,
+      backgroundColor: Colors.yellow,
+      textColor: Colors.black,
     );
   }
 }

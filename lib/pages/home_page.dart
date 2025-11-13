@@ -12,6 +12,7 @@ import 'search_page.dart';
 import 'conversations_page.dart';
 import 'swipe_page.dart';
 import 'matches_page.dart';
+import 'rumor_feed_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -64,7 +65,7 @@ class _HomePageState extends State<HomePage> {
           },
         );
       case 1:
-        return _ClubsContent(scrollController: _scrollController);
+        return RumorFeedPage(scrollController: _scrollController);
       case 2:
         return SwipePage(scrollController: _scrollController);
       case 3:
@@ -323,12 +324,12 @@ class _HomePageState extends State<HomePage> {
                     icon: Padding(
                       padding: const EdgeInsets.all(4.0),
                       child: FaIcon(
-                        _selectedIndex == 1 ? FontAwesomeIcons.users : FontAwesomeIcons.user,
+                        _selectedIndex == 1 ? FontAwesomeIcons.fire : FontAwesomeIcons.fire,
                         color: _selectedIndex == 1 ? Colors.white : Colors.white54,
                         size: 20,
                       ),
                     ),
-                    label: 'Clubs',
+                    label: 'Rumors',
                   ),
                   BottomNavigationBarItem(
                     icon: Padding(
@@ -363,29 +364,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-
-class _ClubsContent extends StatelessWidget {
-  final ScrollController scrollController;
-
-  const _ClubsContent({required this.scrollController});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.builder(
-      controller: scrollController,
-      padding: const EdgeInsets.only(bottom: 100, top: 12, left: 16, right: 16),
-      itemCount: 20,
-      itemBuilder: (context, index) {
-        return Container(
-          color: Colors.black,
-          padding: const EdgeInsets.all(20),
-          child: Text(
-            index == 0 ? 'Clubs' : 'Club $index',
-            style: const TextStyle(color: Colors.white, fontSize: 24),
-          ),
-        );
-      },
-    );
-  }
-}
-

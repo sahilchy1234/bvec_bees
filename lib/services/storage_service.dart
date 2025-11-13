@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
-import 'package:image/image.dart' as img;
+import 'image_compression_service.dart';
 
 class StorageService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -15,18 +15,24 @@ class StorageService {
   }
 
   Future<String> uploadIdCard(String userId, File imageFile) async {
+    File? compressedFile;
     try {
       if (!imageFile.existsSync()) {
         throw Exception('Image file does not exist');
       }
 
-      final File compressedFile = await _compressImage(imageFile);
-      final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}${path.extension(compressedFile.path)}';
+      // Compress the ID card image (max 30KB)
+      compressedFile = await ImageCompressionService.compressImage(
+        imageFile, 
+        CompressionType.idCard,
+      );
+      
+      final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final String filePath = 'id_cards/$fileName';
 
       final ref = _storage.ref().child(filePath);
       final metadata = SettableMetadata(
-        contentType: 'image/${path.extension(compressedFile.path).replaceFirst('.', '')}',
+        contentType: 'image/jpeg',
         customMetadata: {'userId': userId},
         cacheControl: 'public, max-age=31536000',
       );
@@ -36,9 +42,6 @@ class StorageService {
       if (snapshot.state == TaskState.success) {
         final downloadUrl = await snapshot.ref.getDownloadURL();
         _urlCache[filePath] = downloadUrl;
-        if (compressedFile.path != imageFile.path) {
-          await compressedFile.delete();
-        }
         return downloadUrl;
       } else {
         throw Exception('Upload failed: ${snapshot.state}');
@@ -46,20 +49,29 @@ class StorageService {
     } catch (e) {
       debugPrint('Error in uploadIdCard for $userId: $e');
       throw Exception('Failed to upload ID card: $e');
+    } finally {
+      // Clean up compressed file if it was created
+      if (compressedFile != null && compressedFile.path != imageFile.path) {
+        await ImageCompressionService.cleanupTempFile(compressedFile);
+      }
     }
   }
 
   Future<String> uploadProfileImage(String userId, File imageFile) async {
+    File? compressedFile;
     try {
       if (!imageFile.existsSync()) {
         throw Exception('Image file does not exist');
       }
 
-      // Compress and resize image before upload
-      final File compressedFile = await _compressImage(imageFile);
+      // Compress the profile image (max 30KB)
+      compressedFile = await ImageCompressionService.compressImage(
+        imageFile, 
+        CompressionType.avatar,
+      );
       
       // Create a unique file name using the user ID and timestamp
-      final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}${path.extension(compressedFile.path)}';
+      final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final String filePath = 'profile_images/$fileName';
       
       // Create a reference to the file location
@@ -67,7 +79,7 @@ class StorageService {
       
       // Upload the file with metadata and caching headers
       final metadata = SettableMetadata(
-        contentType: 'image/${path.extension(compressedFile.path).replaceFirst('.', '')}',
+        contentType: 'image/jpeg',
         customMetadata: {'userId': userId},
         cacheControl: 'public, max-age=31536000', // Cache for 1 year
       );
@@ -93,11 +105,6 @@ class StorageService {
         // Cache the URL
         _urlCache[filePath] = downloadUrl;
         
-        // Clean up compressed file
-        if (compressedFile.path != imageFile.path) {
-          await compressedFile.delete();
-        }
-        
         return downloadUrl;
       } else {
         throw Exception('Upload failed: ${snapshot.state}');
@@ -105,52 +112,14 @@ class StorageService {
     } catch (e) {
       debugPrint('Error in uploadProfileImage for $userId: $e');
       throw Exception('Failed to upload image: $e');
-    }
-  }
-
-  Future<File> _compressImage(File file) async {
-    try {
-      // Read the image
-      final bytes = await file.readAsBytes();
-      final image = img.decodeImage(bytes);
-      
-      if (image == null) throw Exception('Could not decode image');
-
-      // Calculate new dimensions while maintaining aspect ratio
-      int width = image.width;
-      int height = image.height;
-      
-      // Target width for profile images
-      const targetWidth = 512;
-      
-      if (width > targetWidth) {
-        height = (height * targetWidth / width).round();
-        width = targetWidth;
+    } finally {
+      // Clean up compressed file if it was created
+      if (compressedFile != null && compressedFile.path != imageFile.path) {
+        await ImageCompressionService.cleanupTempFile(compressedFile);
       }
-
-      // Resize the image
-      final resized = img.copyResize(
-        image,
-        width: width,
-        height: height,
-        interpolation: img.Interpolation.linear,
-      );
-
-      // Compress the image
-      final compressed = img.encodeJpg(resized, quality: 85);
-
-      // Create a temporary file
-      final tempPath = file.path + '_compressed.jpg';
-      final compressedFile = File(tempPath);
-      await compressedFile.writeAsBytes(compressed);
-
-      return compressedFile;
-    } catch (e) {
-      debugPrint('Error compressing image: $e');
-      // Return original file if compression fails
-      return file;
     }
   }
+
   
   Future<void> deleteProfileImage(String imageUrl) async {
     try {

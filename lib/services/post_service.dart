@@ -3,6 +3,20 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:io';
 import '../models/post_model.dart';
+import 'image_compression_service.dart';
+import 'feed_cache_service.dart';
+
+class FeedResult {
+  final List<Post> posts;
+  final DocumentSnapshot? lastDocument;
+  final bool hasMore;
+
+  FeedResult({
+    required this.posts,
+    this.lastDocument,
+    required this.hasMore,
+  });
+}
 
 class PostService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -22,14 +36,45 @@ class PostService {
     return {for (final key in supportedReactions) key: 0};
   }
 
-  // Upload image to Firebase Storage
+  // Fetch basic user info (id, name, image) for a list of user IDs
+  Future<List<Map<String, dynamic>>> getUsersBasicByIds(List<String> userIds) async {
+    if (userIds.isEmpty) return [];
+    final results = <Map<String, dynamic>>[];
+    // Firestore whereIn max 10 per query
+    const chunkSize = 10;
+    for (var i = 0; i < userIds.length; i += chunkSize) {
+      final chunk = userIds.sublist(i, i + chunkSize > userIds.length ? userIds.length : i + chunkSize);
+      final qs = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      for (final doc in qs.docs) {
+        final data = doc.data();
+        results.add({
+          'id': doc.id,
+          'name': data['name'] ?? '',
+          'image': data['image'] ?? data['photoUrl'] ?? data['profileImage'] ?? '',
+        });
+      }
+    }
+    return results;
+  }
+
+  // Upload image to Firebase Storage with compression
   Future<String> uploadImage(File imageFile, String postId, int imageIndex) async {
+    File? compressedFile;
     try {
+      // Compress the image for post upload (max 200KB)
+      compressedFile = await ImageCompressionService.compressImage(
+        imageFile, 
+        CompressionType.post,
+      );
+      
       final fileName = 'posts/$postId/image_$imageIndex.jpg';
       final ref = _storage.ref().child(fileName);
       
       await ref.putFile(
-        imageFile,
+        compressedFile,
         SettableMetadata(contentType: 'image/jpeg'),
       );
       
@@ -37,6 +82,11 @@ class PostService {
       return downloadUrl;
     } catch (e) {
       throw Exception('Failed to upload image: $e');
+    } finally {
+      // Clean up compressed file if it was created
+      if (compressedFile != null && compressedFile.path != imageFile.path) {
+        await ImageCompressionService.cleanupTempFile(compressedFile);
+      }
     }
   }
 
@@ -87,17 +137,47 @@ class PostService {
     }
   }
 
-  // Get feed with algorithm-based sorting
-  Future<List<Post>> getFeed({int limit = 20}) async {
+  // Get feed with caching and pagination support
+  Future<List<Post>> getFeed({
+    int limit = 20, 
+    DocumentSnapshot? startAfter,
+    bool useCache = true,
+  }) async {
+    final cacheService = FeedCacheService.instance;
+    
     try {
-      final snapshot = await _firestore
+      // Try to get cached posts first (only for initial load)
+      if (useCache && startAfter == null) {
+        final cachedPosts = await cacheService.getCachedPosts();
+        if (cachedPosts != null && cachedPosts.isNotEmpty) {
+          print('Serving ${cachedPosts.length} posts from cache');
+          return cachedPosts.take(limit).toList();
+        }
+      }
+
+      // Check internet connection
+      final hasInternet = await cacheService.hasInternetConnection();
+      if (!hasInternet && startAfter == null) {
+        final cachedPosts = await cacheService.getCachedPosts();
+        if (cachedPosts != null) {
+          return cachedPosts.take(limit).toList();
+        }
+        throw Exception('No internet connection and no cached data available');
+      }
+
+      // Build query
+      Query query = _firestore
           .collection('posts')
-          .orderBy('timestamp', descending: true)
-          .limit(limit * 2) // Fetch more to apply algorithm
-          .get();
+          .orderBy('timestamp', descending: true);
+
+      if (startAfter != null) {
+        query = query.startAfterDocument(startAfter);
+      }
+
+      final snapshot = await query.limit(limit * 2).get(); // Fetch more for algorithm
 
       List<Post> posts = snapshot.docs
-          .map((doc) => Post.fromMap(doc.data(), doc.id))
+          .map((doc) => Post.fromMap(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
 
       // Apply feed algorithm
@@ -106,9 +186,57 @@ class PostService {
       // Diversity boost: reduce same author dominance
       posts = _applyDiversityBoost(posts);
 
-      return posts.take(limit).toList();
+      final result = posts.take(limit).toList();
+
+      // Cache the results (only for initial load)
+      if (startAfter == null && result.isNotEmpty) {
+        await cacheService.cachePosts(result);
+      }
+
+      return result;
     } catch (e) {
+      // Fallback to cache if network fails
+      if (startAfter == null) {
+        final cachedPosts = await cacheService.getCachedPosts();
+        if (cachedPosts != null && cachedPosts.isNotEmpty) {
+          return cachedPosts.take(limit).toList();
+        }
+      }
       throw Exception('Failed to fetch feed: $e');
+    }
+  }
+
+  // Get paginated feed with document cursor
+  Future<FeedResult> getFeedPaginated({
+    int limit = 20,
+    DocumentSnapshot? startAfter,
+    bool useCache = true,
+  }) async {
+    try {
+      final posts = await getFeed(
+        limit: limit, 
+        startAfter: startAfter,
+        useCache: useCache,
+      );
+
+      // Get the last document for pagination
+      DocumentSnapshot? lastDoc;
+      if (posts.isNotEmpty) {
+        final lastPost = posts.last;
+        final docSnapshot = await _firestore
+            .collection('posts')
+            .doc(lastPost.id)
+            .get();
+        lastDoc = docSnapshot;
+      }
+
+      return FeedResult(
+        posts: posts,
+        lastDocument: lastDoc,
+        hasMore: posts.length >= limit,
+      );
+    } catch (e) {
+      throw Exception('Failed to fetch paginated feed: $e');
     }
   }
 

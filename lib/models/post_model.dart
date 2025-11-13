@@ -67,7 +67,13 @@ class Post {
       imageUrls: List<String>.from(map['imageUrls'] ?? []),
       hashtags: List<String>.from(map['hashtags'] ?? []),
       mentions: List<String>.from(map['mentions'] ?? []),
-      timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      timestamp: map['timestamp'] is Timestamp
+          ? (map['timestamp'] as Timestamp).toDate()
+          : map['timestamp'] is String
+              ? DateTime.parse(map['timestamp'])
+              : map['timestamp'] is DateTime
+                  ? map['timestamp'] as DateTime
+                  : DateTime.now(),
       likes: map['likes'] ?? 0,
       comments: map['comments'] ?? 0,
       shares: map['shares'] ?? 0,

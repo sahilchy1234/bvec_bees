@@ -57,6 +57,7 @@ dependencies:
   firebase_performance: ^0.9.3+8
   connectivity_plus: ^5.0.2
   iconoir_flutter: ^7.11.0
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:

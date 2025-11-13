@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.bvec.bees">
+    <uses-permission android:name="android.permission.VIBRATE" />
     <application
         android:label="bvec_bees"
         android:name="${applicationName}"
