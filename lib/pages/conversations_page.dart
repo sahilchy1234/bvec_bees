@@ -125,8 +125,11 @@ class _ConversationsPageState extends State<ConversationsPage> {
               }
 
               final conversations = snapshot.data ?? [];
+              final nonMatchConversations = conversations
+                  .where((c) => !matchConversations.contains(c.id))
+                  .toList();
 
-              if (conversations.isEmpty) {
+              if (nonMatchConversations.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -158,9 +161,9 @@ class _ConversationsPageState extends State<ConversationsPage> {
               }
 
               return ListView.builder(
-                itemCount: conversations.length,
+                itemCount: nonMatchConversations.length,
                 itemBuilder: (context, index) {
-                  final conversation = conversations[index];
+                  final conversation = nonMatchConversations[index];
                   final otherUserName =
                       conversation.getOtherParticipantName(widget.currentUserId);
                   final otherUserImage =
@@ -194,31 +197,7 @@ class _ConversationsPageState extends State<ConversationsPage> {
                       clipBehavior: Clip.none,
                       children: [
                         _buildUserAvatar(otherUserImage, otherUserName),
-                        if (isMatchChat)
-                          Positioned(
-                            bottom: -2,
-                            left: -2,
-                            child: Container(
-                              width: 18,
-                              height: 18,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.favorite,
-                                size: 12,
-                                color: Color(0xFFFF4D67),
-                              ),
-                            ),
-                          ),
+                        // match chats are hidden here; no badge needed
                         if (isUnread)
                           Positioned(
                             right: 0,
@@ -256,30 +235,7 @@ class _ConversationsPageState extends State<ConversationsPage> {
                             ),
                           ),
                         ),
-                        if (isMatchChat)
-                          Container(
-                            margin: const EdgeInsets.only(left: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF4D67).withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFFF4D67).withOpacity(0.4)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.local_fire_department, size: 12, color: Color(0xFFFF4D67)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Match',
-                                  style: GoogleFonts.poppins(
-                                    color: const Color(0xFFFF4D67),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        // match label hidden here
                       ],
                     ),
                     subtitle: Text(

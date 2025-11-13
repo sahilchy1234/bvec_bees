@@ -14,6 +14,7 @@ class UserModel {
   final String? password;
   final DateTime? boostUntil; // New user visibility boost
   final int hotCount; // Total times voted "hot"
+  final int? leaderboardRank;
 
   UserModel({
     required this.uid,
@@ -31,6 +32,7 @@ class UserModel {
     this.password,
     this.boostUntil,
     this.hotCount = 0,
+    this.leaderboardRank,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -50,6 +52,7 @@ class UserModel {
       password: map['password'],
       boostUntil: map['boostUntil'] != null ? DateTime.parse(map['boostUntil']) : null,
       hotCount: map['hotCount'] ?? 0,
+      leaderboardRank: map['leaderboardRank'],
     );
   }
 
@@ -70,6 +73,7 @@ class UserModel {
       'password': password,
       'boostUntil': boostUntil?.toIso8601String(),
       'hotCount': hotCount,
+      'leaderboardRank': leaderboardRank,
     };
   }
 }
