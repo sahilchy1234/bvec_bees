@@ -12,6 +12,7 @@ class ChatPage extends StatefulWidget {
   final String otherUserId;
   final String otherUserName;
   final String otherUserImage;
+  final bool isMatchChat;
 
   const ChatPage({
     super.key,
@@ -22,6 +23,7 @@ class ChatPage extends StatefulWidget {
     required this.otherUserId,
     required this.otherUserName,
     required this.otherUserImage,
+    this.isMatchChat = false,
   });
 
   @override
@@ -138,30 +140,112 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isMatchChat = widget.isMatchChat;
+    final Color primaryColor = isMatchChat ? const Color(0xFFFF4D67) : Colors.yellow;
+    final Color secondaryColor = isMatchChat ? const Color(0xFF2A0B18) : Colors.grey[900]!;
+    final Color backgroundColor = isMatchChat ? const Color(0xFF12040B) : Colors.black;
+    final Gradient? headerGradient = isMatchChat
+        ? const LinearGradient(
+            colors: [Color(0xFFFF4D67), Color(0xFFFF7F50)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : null;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: backgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        elevation: 0,
+        elevation: isMatchChat ? 6 : 0,
+        flexibleSpace: headerGradient != null
+            ? Container(
+                decoration: BoxDecoration(
+                  gradient: headerGradient,
+                ),
+              )
+            : null,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(
           children: [
-            _buildUserAvatar(widget.otherUserImage, widget.otherUserName, radius: 18),
+            Stack(
+              children: [
+                _buildUserAvatar(widget.otherUserImage, widget.otherUserName, radius: 18),
+                if (isMatchChat)
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.favorite,
+                        color: Color(0xFFFF4D67),
+                        size: 10,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                widget.otherUserName,
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.otherUserName,
+                    style: GoogleFonts.poppins(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (isMatchChat)
+                    Row(
+                      children: [
+                        Icon(Icons.local_fire_department, color: Colors.white, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          'It\'s a match! Start the spark',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                ],
               ),
             ),
+            if (isMatchChat)
+              IconButton(
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.black,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    builder: (_) => _buildDatePrompt(context, primaryColor),
+                  );
+                },
+                icon: const Icon(Icons.favorite_border, color: Colors.white),
+                tooltip: 'Plan something',
+              ),
           ],
         ),
       ),
@@ -236,7 +320,12 @@ class _ChatPageState extends State<ChatPage> {
 
                 return ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 16,
+                    bottom: isMatchChat ? 32 : 16,
+                  ),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
@@ -268,13 +357,29 @@ class _ChatPageState extends State<ChatPage> {
                                     vertical: 10,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: isMe ? Colors.yellow : Colors.grey[900],
+                                    color: isMe
+                                        ? primaryColor
+                                        : (isMatchChat ? secondaryColor : Colors.grey[900]),
                                     borderRadius: BorderRadius.circular(20),
+                                    boxShadow: isMatchChat
+                                        ? [
+                                            BoxShadow(
+                                              color: primaryColor.withOpacity(isMe ? 0.25 : 0.15),
+                                              blurRadius: 18,
+                                              offset: const Offset(0, 10),
+                                            ),
+                                          ]
+                                        : null,
+                                    border: isMatchChat && !isMe
+                                        ? Border.all(color: primaryColor.withOpacity(0.4))
+                                        : null,
                                   ),
                                   child: Text(
                                     message.content,
                                     style: GoogleFonts.poppins(
-                                      color: isMe ? Colors.black : Colors.white,
+                                      color: isMe
+                                          ? Colors.black
+                                          : (isMatchChat ? Colors.white : Colors.white),
                                       fontSize: 14,
                                     ),
                                   ),
@@ -283,7 +388,9 @@ class _ChatPageState extends State<ChatPage> {
                                 Text(
                                   _formatTime(message.timestamp),
                                   style: GoogleFonts.poppins(
-                                    color: Colors.grey,
+                                    color: isMatchChat
+                                        ? Colors.white70
+                                        : Colors.grey,
                                     fontSize: 11,
                                   ),
                                 ),
@@ -310,12 +417,24 @@ class _ChatPageState extends State<ChatPage> {
             top: false,
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.grey[900],
+                color: isMatchChat ? secondaryColor : Colors.grey[900],
                 border: Border(
-                  top: BorderSide(color: Colors.grey[800]!, width: 1),
+                  top: BorderSide(
+                    color: isMatchChat ? primaryColor.withOpacity(0.3) : Colors.grey[800]!,
+                    width: 1,
+                  ),
                 ),
+                boxShadow: isMatchChat
+                    ? [
+                        BoxShadow(
+                          color: primaryColor.withOpacity(0.2),
+                          blurRadius: 24,
+                          offset: const Offset(0, -6),
+                        ),
+                      ]
+                    : null,
               ),
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, isMatchChat ? 24 : 16),
               child: Row(
                 children: [
                   Expanded(
@@ -323,24 +442,26 @@ class _ChatPageState extends State<ChatPage> {
                       controller: _messageController,
                       style: GoogleFonts.poppins(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'Type a message...',
-                        hintStyle: GoogleFonts.poppins(color: Colors.grey),
+                        hintText: isMatchChat ? 'Send something sweet…' : 'Type a message...',
+                        hintStyle: GoogleFonts.poppins(
+                          color: isMatchChat ? Colors.white60 : Colors.grey,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide(
-                            color: Colors.yellow.withOpacity(0.3),
+                            color: primaryColor.withOpacity(0.3),
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide(
-                            color: Colors.yellow.withOpacity(0.3),
+                            color: primaryColor.withOpacity(0.3),
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(
-                            color: Colors.yellow,
+                          borderSide: BorderSide(
+                            color: primaryColor,
                             width: 2,
                           ),
                         ),
@@ -349,7 +470,7 @@ class _ChatPageState extends State<ChatPage> {
                           vertical: 12,
                         ),
                         filled: true,
-                        fillColor: Colors.black,
+                        fillColor: isMatchChat ? Colors.black : Colors.black,
                       ),
                       maxLines: null,
                       textInputAction: TextInputAction.send,
@@ -360,17 +481,17 @@ class _ChatPageState extends State<ChatPage> {
                   IconButton(
                     onPressed: _isSending ? null : _sendMessage,
                     icon: _isSending
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.yellow,
+                              color: primaryColor,
                             ),
                           )
-                        : const Icon(
-                            Icons.send,
-                            color: Colors.yellow,
+                        : Icon(
+                            isMatchChat ? Icons.favorite : Icons.send,
+                            color: primaryColor,
                             size: 24,
                           ),
                   ),
@@ -379,6 +500,98 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDatePrompt(BuildContext context, Color accentColor) {
+    final suggestions = [
+      'Plan a coffee date on campus',
+      'Suggest a study session together',
+      'Go for a walk around the quad',
+      'Catch a movie night',
+    ];
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [accentColor.withOpacity(0.2), Colors.black],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.favorite, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Make the first move',
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Need inspiration? Try one of these:',
+              style: GoogleFonts.poppins(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            ...suggestions.map(
+              (suggestion) => Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: accentColor.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.local_fire_department, color: accentColor, size: 18),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        suggestion,
+                        style: GoogleFonts.poppins(color: Colors.white, fontSize: 13),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        final message = suggestion;
+                        Navigator.pop(context);
+                        _messageController.text = message;
+                        _messageController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: _messageController.text.length),
+                        );
+                      },
+                      child: Text('Send', style: GoogleFonts.poppins(color: accentColor)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close, color: Colors.white70),
+              label: Text('Close', style: GoogleFonts.poppins(color: Colors.white70)),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white70,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

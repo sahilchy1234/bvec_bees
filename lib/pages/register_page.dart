@@ -109,8 +109,11 @@ class _RegisterPageState extends State<RegisterPage> {
         branch: _branchController.text.trim(),
         birthdate: _selectedBirthdate,
         gender: _selectedGender,
+        lookingFor: 'both', // Default to both, can be changed in settings
         isVerified: false,
         password: _passwordController.text,
+        boostUntil: DateTime.now().add(const Duration(hours: 24)), // 24-hour new user boost
+        hotCount: 0,
       );
 
       await _authService.registerUser(user);

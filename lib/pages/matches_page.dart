@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/match_model.dart';
 import '../models/user_model.dart';
-import '../services/match_service.dart';
+import '../services/hot_not_service.dart';
 import '../services/auth_service.dart';
 import 'chat_page.dart';
 
@@ -15,7 +15,7 @@ class MatchesPage extends StatefulWidget {
 }
 
 class _MatchesPageState extends State<MatchesPage> {
-  final MatchService _matchService = MatchService();
+  final HotNotService _hotNotService = HotNotService();
   final AuthService _authService = AuthService();
   String _currentUserId = '';
   String _currentUserName = '';
@@ -54,15 +54,9 @@ class _MatchesPageState extends State<MatchesPage> {
       if (match.conversationId != null) {
         conversationId = match.conversationId!;
       } else {
-        conversationId = await _matchService.createMatchConversation(
-          matchId: match.id,
-          user1Id: _currentUserId,
-          user1Name: _currentUserName,
-          user1Image: _currentUserImage,
-          user2Id: otherUser.uid,
-          user2Name: otherUser.name ?? 'User',
-          user2Image: otherUser.avatarUrl ?? '',
-        );
+        // This shouldn't happen with the new system as conversations are created automatically
+        // But keeping as fallback
+        conversationId = match.conversationId ?? '';
       }
 
       if (!mounted) return;
@@ -78,6 +72,7 @@ class _MatchesPageState extends State<MatchesPage> {
             otherUserId: otherUser.uid,
             otherUserName: otherUser.name ?? 'User',
             otherUserImage: otherUser.avatarUrl ?? '',
+            isMatchChat: true,
           ),
         ),
       );
@@ -147,7 +142,7 @@ class _MatchesPageState extends State<MatchesPage> {
         ),
       ),
       body: StreamBuilder<List<Match>>(
-        stream: _matchService.streamMatches(_currentUserId),
+        stream: _hotNotService.streamMatches(_currentUserId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(

@@ -2,15 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
-import '../services/match_service.dart';
+import '../services/hot_not_service.dart';
+import '../services/auth_service.dart';
+import '../models/match_model.dart';
+import 'chat_page.dart';
 import 'dart:math' as math;
+
+enum _HotNotTab { feed, hotted, matches, leaderboard }
 
 class SwipePage extends StatefulWidget {
   final ScrollController scrollController;
+  final String? currentUserId;
 
   const SwipePage({
     super.key,
     required this.scrollController,
+    this.currentUserId,
   });
 
   @override
@@ -18,14 +25,25 @@ class SwipePage extends StatefulWidget {
 }
 
 class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
-  final MatchService _matchService = MatchService();
+  final HotNotService _hotNotService = HotNotService();
+  final AuthService _authService = AuthService();
   List<UserModel> _potentialMatches = [];
+  List<UserModel> _hottedUsers = [];
+  List<Match> _matches = [];
+  List<UserModel> _leaderboardUsers = [];
   bool _isLoading = true;
+  bool _isSectionLoading = false;
   int _currentIndex = 0;
   String _currentUserId = '';
+  UserModel? _currentUser;
+  String? _genderFilter;
   Offset _dragOffset = Offset.zero;
   bool _isDragging = false;
   bool _isAnimating = false;
+  bool _showMatchAnimation = false;
+  UserModel? _matchedUser;
+  _HotNotTab _selectedTab = _HotNotTab.feed;
+  final Map<String, UserModel?> _userCache = {};
   
   late AnimationController _swipeController;
   late Animation<Offset> _swipeAnimation;
@@ -35,6 +53,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _currentUserId = widget.currentUserId ?? '';
     _swipeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
@@ -58,6 +77,78 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
     _loadMatches();
   }
 
+  Future<void> _loadHottedUsers() async {
+    if (_currentUserId.isEmpty) return;
+    setState(() => _isSectionLoading = true);
+    try {
+      final stream = _hotNotService.streamHottedUsers(_currentUserId);
+      stream.listen((users) {
+        if (!mounted) return;
+        setState(() {
+          _hottedUsers = users;
+          _isSectionLoading = false;
+        });
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSectionLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading hotted users: $e')),
+      );
+    }
+  }
+
+  Future<void> _loadMatchesList() async {
+    if (_currentUserId.isEmpty) return;
+    setState(() => _isSectionLoading = true);
+    try {
+      final stream = _hotNotService.streamMatches(_currentUserId);
+      stream.listen((matchList) async {
+        if (!mounted) return;
+        // Preload other user profiles for matches
+        final updatedMatches = <Match>[];
+        for (final match in matchList) {
+          final otherUserId = match.user1Id == _currentUserId
+              ? match.user2Id
+              : match.user1Id;
+          if (!_userCache.containsKey(otherUserId)) {
+            _userCache[otherUserId] = await _authService.getUserProfile(otherUserId);
+          }
+          updatedMatches.add(match);
+        }
+        setState(() {
+          _matches = updatedMatches;
+          _isSectionLoading = false;
+        });
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSectionLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading matches: $e')),
+      );
+    }
+  }
+
+  Future<void> _loadLeaderboard() async {
+    if (_currentUserId.isEmpty) return;
+    setState(() => _isSectionLoading = true);
+    try {
+      final topUsers = await _hotNotService.getLeaderboard();
+      if (!mounted) return;
+      setState(() {
+        _leaderboardUsers = topUsers;
+        _isSectionLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSectionLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading leaderboard: $e')),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _swipeController.dispose();
@@ -68,17 +159,34 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   Future<void> _loadMatches() async {
     setState(() => _isLoading = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _currentUserId = prefs.getString('current_user_uid') ?? '';
+      if (_currentUserId.isEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        _currentUserId = prefs.getString('current_user_uid') ?? '';
+      }
 
       if (_currentUserId.isEmpty) {
         setState(() => _isLoading = false);
         return;
       }
 
-      final matches = await _matchService.getPotentialMatches(_currentUserId);
+      // Load current user profile
+      _currentUser = await _authService.getUserProfile(_currentUserId);
+
+      if (_currentUser == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Get feed using Hot & Not algorithm
+      final feedUsers = await _hotNotService.getFeed(
+        currentUserId: _currentUserId,
+        currentUserGender: _currentUser!.gender,
+        lookingFor: _currentUser!.lookingFor,
+        genderFilter: _genderFilter,
+      );
+
       setState(() {
-        _potentialMatches = matches;
+        _potentialMatches = feedUsers;
         _currentIndex = 0;
         _isLoading = false;
       });
@@ -86,7 +194,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading matches: $e')),
+          SnackBar(content: Text('Error loading feed: $e')),
         );
       }
     }
@@ -158,17 +266,27 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
 
       final animationFuture = _swipeController.forward();
 
-      final voteFuture = _matchService.castVote(
+      // Use Hot & Not service for voting
+      final isMatchFuture = _hotNotService.castVote(
         voterId: _currentUserId,
         targetId: targetUser.uid,
         isHot: isHot,
       );
 
-      await Future.wait([animationFuture, voteFuture]);
+      final results = await Future.wait<dynamic>(<Future<dynamic>>[
+        animationFuture,
+        isMatchFuture,
+      ]);
+      final isMatch = results[1] as bool;
 
       _swipeController.reset();
 
       if (!mounted) return;
+
+      // Show match animation if it's a match
+      if (isMatch && isHot) {
+        _showMatchDialog(targetUser);
+      }
 
       setState(() {
         _dragOffset = Offset.zero;
@@ -190,6 +308,84 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
         });
       }
     }
+  }
+
+  void _showMatchDialog(UserModel matchedUser) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.grey[900],
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.yellow, width: 2),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.favorite,
+                color: Colors.yellow,
+                size: 64,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'It\'s a Match!',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You and ${matchedUser.name ?? 'User'} liked each other',
+                style: GoogleFonts.poppins(
+                  color: Colors.grey,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[800],
+                        foregroundColor: Colors.white,
+                      ),
+                      child: Text('Keep Swiping', style: GoogleFonts.poppins()),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const MatchesPage()),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.yellow,
+                        foregroundColor: Colors.black,
+                      ),
+                      child: Text('View Matches', style: GoogleFonts.poppins()),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Offset _computeActiveOffset() {
@@ -229,14 +425,139 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
     );
   }
 
+  void _showGenderFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[900],
+        title: Text(
+          'Gender Filter',
+          style: GoogleFonts.poppins(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildFilterOption('All', 'all'),
+            _buildFilterOption('Male', 'male'),
+            _buildFilterOption('Female', 'female'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterOption(String label, String value) {
+    return RadioListTile<String>(
+      title: Text(label, style: GoogleFonts.poppins(color: Colors.white)),
+      value: value,
+      groupValue: _genderFilter ?? 'all',
+      activeColor: Colors.yellow,
+      onChanged: (newValue) {
+        setState(() {
+          _genderFilter = newValue == 'all' ? null : newValue;
+        });
+        Navigator.pop(context);
+        _loadMatches();
+      },
+    );
+  }
+
+  Widget _buildTabButton(String label, bool isActive, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isActive ? Colors.yellow : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              color: isActive ? Colors.black : Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.yellow),
-      );
-    }
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        title: Text(
+          'Hot & Not',
+          style: GoogleFonts.poppins(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list, color: Colors.white),
+            onPressed: _showGenderFilterDialog,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Tab Bar
+          Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[900],
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: Row(
+              children: [
+                _buildTabButton('Feed', true, () {}),
+                _buildTabButton('Hotted', false, () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => HottedUsersPage(currentUserId: _currentUserId),
+                    ),
+                  );
+                }),
+                _buildTabButton('Matches', false, () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const MatchesPage()),
+                  );
+                }),
+                _buildTabButton('Top 10', false, () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const LeaderboardPage()),
+                  );
+                }),
+              ],
+            ),
+          ),
+          
+          // Feed Content
+          Expanded(
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.yellow),
+                  )
+                : _buildFeedContent(),
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildFeedContent() {
     if (_currentUserId.isEmpty) {
       return Center(
         child: Column(

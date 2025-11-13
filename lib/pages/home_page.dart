@@ -175,6 +175,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final bool showGlobalAppBar = _selectedIndex != 2;
+    final double topPadding = showGlobalAppBar ? 72 : 0;
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: null,
@@ -184,95 +187,96 @@ class _HomePageState extends State<HomePage> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.only(top: 72),
+              padding: EdgeInsets.only(top: topPadding),
               child: _pageFor(_selectedIndex),
             ),
           ),
           // Animated top bar overlay
-          SafeArea(
-            bottom: false,
-            child: AnimatedSlide(
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOut,
-              offset: _showAppBar ? const Offset(0, 0) : const Offset(0, -1),
-              child: AnimatedOpacity(
+          if (showGlobalAppBar)
+            SafeArea(
+              bottom: false,
+              child: AnimatedSlide(
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOut,
-                opacity: _showAppBar ? 1 : 0,
-                child: Container(
-                  height: 56,
-                  color: Colors.black,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Text(
-                          'Beezy',
-                          style: GoogleFonts.dancingScript(
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                offset: _showAppBar ? const Offset(0, 0) : const Offset(0, -1),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOut,
+                  opacity: _showAppBar ? 1 : 0,
+                  child: Container(
+                    height: 56,
+                    color: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Text(
+                            'Beezy',
+                            style: GoogleFonts.dancingScript(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
                           ),
                         ),
-                      ),
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.search, size: 25),
-                            color: Colors.white,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const SearchPage(),
-                                ),
-                              );
-                            },
-                            tooltip: 'Search',
-                          ),
-                          IconButton(
-                            icon: const FaIcon(FontAwesomeIcons.heart, size: 18),
-                            color: Colors.white,
-                            onPressed: () {},
-                            tooltip: 'Likes',
-                          ),
-                          IconButton(
-                            icon: const FaIcon(FontAwesomeIcons.comment, size: 18),
-                            color: Colors.white,
-                            onPressed: () async {
-                              final prefs = await SharedPreferences.getInstance();
-                              final currentUserId = prefs.getString('current_user_uid') ?? '';
-                              final currentUserName = prefs.getString('current_user_name') ?? 'User';
-                              final currentUserImage = prefs.getString('current_user_avatar') ?? '';
-
-                              if (currentUserId.isEmpty) return;
-
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ConversationsPage(
-                                    currentUserId: currentUserId,
-                                    currentUserName: currentUserName,
-                                    currentUserImage: currentUserImage,
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.search, size: 25),
+                              color: Colors.white,
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const SearchPage(),
                                   ),
-                                ),
-                              );
-                            },
-                            tooltip: 'Messages',
-                          ),
-                          
-                          const SizedBox(width: 4),
-                        ],
-                      ),
-                    ],
+                                );
+                              },
+                              tooltip: 'Search',
+                            ),
+                            IconButton(
+                              icon: const FaIcon(FontAwesomeIcons.heart, size: 18),
+                              color: Colors.white,
+                              onPressed: () {},
+                              tooltip: 'Likes',
+                            ),
+                            IconButton(
+                              icon: const FaIcon(FontAwesomeIcons.comment, size: 18),
+                              color: Colors.white,
+                              onPressed: () async {
+                                final prefs = await SharedPreferences.getInstance();
+                                final currentUserId = prefs.getString('current_user_uid') ?? '';
+                                final currentUserName = prefs.getString('current_user_name') ?? 'User';
+                                final currentUserImage = prefs.getString('current_user_avatar') ?? '';
+
+                                if (currentUserId.isEmpty) return;
+
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ConversationsPage(
+                                      currentUserId: currentUserId,
+                                      currentUserName: currentUserName,
+                                      currentUserImage: currentUserImage,
+                                    ),
+                                  ),
+                                );
+                              },
+                              tooltip: 'Messages',
+                            ),
+                            
+                            const SizedBox(width: 4),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
       bottomNavigationBar: Padding(

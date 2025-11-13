@@ -6,6 +6,8 @@ class Match {
   final String user2Id;
   final DateTime matchedAt;
   final String? conversationId;
+  final bool isActive; // false if one user unhots
+  final DateTime? lastMessageAt; // for sorting matches
 
   Match({
     required this.id,
@@ -13,6 +15,8 @@ class Match {
     required this.user2Id,
     required this.matchedAt,
     this.conversationId,
+    this.isActive = true,
+    this.lastMessageAt,
   });
 
   Map<String, dynamic> toMap() {
@@ -22,6 +26,8 @@ class Match {
       'user2Id': user2Id,
       'matchedAt': matchedAt,
       'conversationId': conversationId,
+      'isActive': isActive,
+      'lastMessageAt': lastMessageAt,
     };
   }
 
@@ -32,6 +38,8 @@ class Match {
       user2Id: map['user2Id'] ?? '',
       matchedAt: (map['matchedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       conversationId: map['conversationId'],
+      isActive: map['isActive'] ?? true,
+      lastMessageAt: (map['lastMessageAt'] as Timestamp?)?.toDate(),
     );
   }
 }

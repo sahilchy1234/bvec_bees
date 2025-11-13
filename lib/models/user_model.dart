@@ -9,8 +9,11 @@ class UserModel {
   final String? branch;
   final DateTime? birthdate;
   final String? gender;
+  final String? lookingFor; // 'opposite', 'same', 'both'
   final bool isVerified;
   final String? password;
+  final DateTime? boostUntil; // New user visibility boost
+  final int hotCount; // Total times voted "hot"
 
   UserModel({
     required this.uid,
@@ -23,8 +26,11 @@ class UserModel {
     this.branch,
     this.birthdate,
     this.gender,
+    this.lookingFor,
     this.isVerified = false,
     this.password,
+    this.boostUntil,
+    this.hotCount = 0,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -39,8 +45,11 @@ class UserModel {
       branch: map['branch'],
       birthdate: map['birthdate'] != null ? DateTime.parse(map['birthdate']) : null,
       gender: map['gender'],
+      lookingFor: map['lookingFor'],
       isVerified: map['isVerified'] ?? false,
       password: map['password'],
+      boostUntil: map['boostUntil'] != null ? DateTime.parse(map['boostUntil']) : null,
+      hotCount: map['hotCount'] ?? 0,
     );
   }
 
@@ -56,8 +65,11 @@ class UserModel {
       'branch': branch,
       'birthdate': birthdate?.toIso8601String(),
       'gender': gender,
+      'lookingFor': lookingFor,
       'isVerified': isVerified,
       'password': password,
+      'boostUntil': boostUntil?.toIso8601String(),
+      'hotCount': hotCount,
     };
   }
 }
