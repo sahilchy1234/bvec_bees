@@ -64,7 +64,9 @@ class HotNotService {
           targetUserGender: user.gender,
           targetUserLookingFor: user.lookingFor,
           genderFilter: genderFilter,
-        )) continue;
+        )) {
+          continue;
+        }
         
         // Check if user has new user boost
         if (user.boostUntil != null && user.boostUntil!.isAfter(now)) {

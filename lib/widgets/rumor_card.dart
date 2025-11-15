@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -89,16 +91,24 @@ class _RumorCardState extends State<RumorCard> {
   @override
   void didUpdateWidget(RumorCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Always refresh local vote status when widget updates
-    _updateVoteStatus();
+    // Only update vote status if the rumor data actually changed
+    if (oldWidget.rumor.id != widget.rumor.id ||
+        oldWidget.rumor.yesVotes != widget.rumor.yesVotes ||
+        oldWidget.rumor.noVotes != widget.rumor.noVotes ||
+        !listEquals(oldWidget.rumor.votedYesByUsers, widget.rumor.votedYesByUsers) ||
+        !listEquals(oldWidget.rumor.votedNoByUsers, widget.rumor.votedNoByUsers)) {
+      _updateVoteStatus();
+    }
   }
 
   void _updateVoteStatus() {
-    _userVotedYes = widget.rumor.votedYesByUsers.contains(widget.currentUserId);
-    _userVotedNo = widget.rumor.votedNoByUsers.contains(widget.currentUserId);
-    _yesVotesLocal = widget.rumor.yesVotes;
-    _noVotesLocal = widget.rumor.noVotes;
-    _credScoreLocal = _calculateCredibility(_yesVotesLocal, _noVotesLocal);
+    setState(() {
+      _userVotedYes = widget.rumor.votedYesByUsers.contains(widget.currentUserId);
+      _userVotedNo = widget.rumor.votedNoByUsers.contains(widget.currentUserId);
+      _yesVotesLocal = widget.rumor.yesVotes;
+      _noVotesLocal = widget.rumor.noVotes;
+      _credScoreLocal = _calculateCredibility(_yesVotesLocal, _noVotesLocal);
+    });
   }
 
   String _formatTime(DateTime time) {
@@ -365,7 +375,7 @@ class _RumorCardState extends State<RumorCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Yes: ${_yesVotesLocal}',
+                        'Yes: $_yesVotesLocal',
                         style: const TextStyle(
                           color: Colors.green,
                           fontSize: 12,
@@ -389,7 +399,7 @@ class _RumorCardState extends State<RumorCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'No: ${_noVotesLocal}',
+                        'No: $_noVotesLocal',
                         style: const TextStyle(
                           color: Colors.red,
                           fontSize: 12,
@@ -422,6 +432,12 @@ class _RumorCardState extends State<RumorCard> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(999),
                       onTap: () {
+                        try {
+                          HapticFeedback.heavyImpact();
+                          print('Haptic feedback: heavyImpact triggered');
+                        } catch (e) {
+                          print('Haptic feedback: Error - $e');
+                        }
                         setState(() {
                           if (_userVotedYes) {
                             // remove yes vote
@@ -501,6 +517,12 @@ class _RumorCardState extends State<RumorCard> {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(999),
                       onTap: () {
+                        try {
+                          HapticFeedback.heavyImpact();
+                          print('Haptic feedback: heavyImpact triggered');
+                        } catch (e) {
+                          print('Haptic feedback: Error - $e');
+                        }
                         setState(() {
                           if (_userVotedNo) {
                             // remove no vote

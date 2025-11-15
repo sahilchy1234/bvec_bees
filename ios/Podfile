@@ -1,7 +1,5 @@
-# Uncomment this line to define a global platform for your project
-platform :ios, '12.0'
+platform :ios, '16.0'
 
-# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -20,6 +18,7 @@ def flutter_root
     matches = line.match(/FLUTTER_ROOT\=(.*)/)
     return matches[1].strip if matches
   end
+
   raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
 end
 
@@ -31,7 +30,13 @@ target 'Runner' do
   use_frameworks!
   use_modular_headers!
 
+  # Fix: gRPC 1.62.5 has template errors in Xcode 15+
+  pod 'gRPC-Core', '< 1.62.5'
+  pod 'gRPC-C++', '< 1.62.5'
+  pod 'gRPC-ProtoRPC', '< 1.62.5'
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
   target 'RunnerTests' do
     inherit! :search_paths
   end
@@ -39,9 +44,22 @@ end
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
+
+    # Clean, safe fix for BoringSSL-GRPC
+    if target.name == 'BoringSSL-GRPC'
+      target.source_build_phase.files.each do |file|
+        if file.settings && file.settings['COMPILER_FLAGS']
+          flags = file.settings['COMPILER_FLAGS'].split
+          flags.reject! { |flag| flag == '-GCC_WARN_INHIBIT_ALL_WARNINGS' }
+          file.settings['COMPILER_FLAGS'] = flags.join(' ')
+        end
+      end
+    end
+
     flutter_additional_ios_build_settings(target)
+
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
     end
   end
 end

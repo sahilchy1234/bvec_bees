@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path/path.dart' as path;
 import 'image_compression_service.dart';
 
 class StorageService {

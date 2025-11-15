@@ -654,7 +654,7 @@ class _RegisterPageState extends State<RegisterPage> {
         border: Border.all(color: Colors.grey.shade800, width: 1),
       ),
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         dropdownColor: const Color(0xFF2D2D2D),
         items: items,
         onChanged: onChanged,

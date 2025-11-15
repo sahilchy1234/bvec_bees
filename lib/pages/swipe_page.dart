@@ -46,7 +46,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   Offset _dragOffset = Offset.zero;
   bool _isDragging = false;
   bool _isAnimating = false;
-  bool _showMatchAnimation = false;
+  final bool _showMatchAnimation = false;
   UserModel? _matchedUser;
   _HotNotTab _selectedTab = _HotNotTab.feed;
   final Map<String, UserModel?> _userCache = {};

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
-import 'package:characters/characters.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -39,8 +37,8 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
   final PostService _postService = PostService();
   final FeedCacheService _cacheService = FeedCacheService.instance;
   final List<Post> _posts = [];
-  final ScrollController _scrollController = ScrollController();
-  
+  ScrollController? _attachedScrollController;
+
   bool _isLoading = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -53,7 +51,7 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    _attachScrollController();
     _loadInitialFeed();
     
     // Debug: Print user data
@@ -67,12 +65,28 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _attachedScrollController?.removeListener(_onScroll);
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant FeedPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      _attachScrollController();
+    }
+  }
+
+  void _attachScrollController() {
+    _attachedScrollController?.removeListener(_onScroll);
+    widget.scrollController.addListener(_onScroll);
+    _attachedScrollController = widget.scrollController;
+  }
+
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    final controller = _attachedScrollController;
+    if (controller == null || !controller.hasClients) return;
+    if (controller.position.pixels >= controller.position.maxScrollExtent - 200) {
       if (!_isLoadingMore && _hasMore) {
         _loadMorePosts();
       }
@@ -162,6 +176,7 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
       backgroundColor: Colors.grey[900],
       child: CustomScrollView(
         controller: widget.scrollController,
+        cacheExtent: 800,
         physics: const BouncingScrollPhysics(),
         slivers: [
           // Create post section as sliver
@@ -296,6 +311,9 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
                   return null;
                 },
                 childCount: _posts.length + (_isLoadingMore || !_hasMore ? 1 : 0),
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: true,
+                addSemanticIndexes: false,
               ),
             ),
           

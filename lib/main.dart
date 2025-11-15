@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_performance/firebase_performance.dart';
+// simport 'package:firebase_performance/firebase_performance.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
@@ -19,8 +19,8 @@ void main() async {
   );
   
   // Initialize Performance Monitoring
-  FirebasePerformance performance = FirebasePerformance.instance;
-  await performance.setPerformanceCollectionEnabled(true);
+  // FirebasePerformance performance = FirebasePerformance.instance;
+  // sawait performance.setPerformanceCollectionEnabled(true);
   
   // Set up connectivity monitoring
   Connectivity().onConnectivityChanged.listen((ConnectivityResult result) {

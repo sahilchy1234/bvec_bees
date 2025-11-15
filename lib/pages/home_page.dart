@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:flutter/rendering.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import '../models/user_model.dart';
@@ -11,7 +10,6 @@ import 'profile_page.dart';
 import 'search_page.dart';
 import 'conversations_page.dart';
 import 'swipe_page.dart';
-import 'matches_page.dart';
 import 'rumor_feed_page.dart';
 
 class HomePage extends StatefulWidget {

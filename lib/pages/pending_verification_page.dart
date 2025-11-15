@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'verification_complete_page.dart';
-import 'package:lottie/lottie.dart';
 
 class PendingVerificationPage extends StatelessWidget {
   const PendingVerificationPage({super.key});

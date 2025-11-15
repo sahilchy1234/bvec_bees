@@ -138,8 +138,8 @@ class Post {
       comments: comments ?? this.comments,
       shares: shares ?? this.shares,
       likedBy: likedBy ?? this.likedBy,
-      reactionCounts: reactionCounts ?? this.reactionCounts,
-      reactions: reactions ?? this.reactions,
+      reactionCounts: reactionCounts ?? reactionCounts,
+      reactions: reactions ?? reactions,
     );
   }
 

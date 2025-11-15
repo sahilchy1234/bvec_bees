@@ -22,19 +22,19 @@ class FeedCacheService {
   Future<void> cachePosts(List<Post> posts) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      dynamic _convertDateTimes(dynamic value) {
+      dynamic convertDateTimes(dynamic value) {
         if (value is DateTime) {
           return value.toIso8601String();
         } else if (value is Map) {
-          return value.map((k, v) => MapEntry(k, _convertDateTimes(v)));
+          return value.map((k, v) => MapEntry(k, convertDateTimes(v)));
         } else if (value is List) {
-          return value.map(_convertDateTimes).toList();
+          return value.map(convertDateTimes).toList();
         }
         return value;
       }
       final postsJson = posts.take(_maxCachedPosts).map((post) {
         final map = post.toMap();
-        return _convertDateTimes(map);
+        return convertDateTimes(map);
       }).toList();
       await prefs.setString(_feedCacheKey, jsonEncode(postsJson));
       await prefs.setInt(_lastFetchKey, DateTime.now().millisecondsSinceEpoch);

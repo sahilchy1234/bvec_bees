@@ -37,7 +37,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   // Mention autocomplete
   OverlayEntry? _mentionOverlay;
   List<UserModel> _mentionSuggestions = [];
-  bool _showMentionSuggestions = false;
+  final bool _showMentionSuggestions = false;
   String _currentMentionQuery = '';
 
   @override
@@ -191,7 +191,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     final renderBox = _contentFieldKey.currentContext?.findRenderObject() as RenderBox?;
     final overlay = Overlay.of(context, rootOverlay: true);
 
-    if (renderBox == null || overlay == null) {
+    if (renderBox == null) {
       debugPrint('[CreatePost] Unable to create overlay: renderBox or overlay missing');
       return;
     }

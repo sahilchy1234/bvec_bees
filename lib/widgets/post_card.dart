@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter/gestures.dart';
-import 'package:characters/characters.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
-import '../pages/comments_page.dart';
 import '../pages/trending_page.dart';
 import '../pages/profile_page.dart';
 import 'cached_network_image_widget.dart';
@@ -70,7 +69,7 @@ class _ReactionsSheetState extends State<_ReactionsSheet> {
   Future<void> _load() async {
     try {
       final snap = await FirebaseFirestore.instance.collection('posts').doc(widget.postId).get();
-      final data = snap.data() as Map<String, dynamic>?;
+      final data = snap.data();
       final reactions = Map<String, String>.from(data?['reactions'] ?? {});
 
       final userIds = reactions.keys.toList();
@@ -436,6 +435,12 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
       _currentReaction != null ? _reactionOptionByKey[_currentReaction!] : null;
 
   void _handlePrimaryReactionTap() {
+    try {
+      HapticFeedback.lightImpact();
+    } catch (e) {
+      // Haptic feedback not supported, continue
+    }
+    
     if (_currentReaction == 'like' || _currentReaction == "love" || _currentReaction == "care" || _currentReaction == "haha" || _currentReaction == "wow" || _currentReaction == "sad" || _currentReaction == "angry"  ) {
         _setReaction(null);
       // debugPrint("CLICKED");
@@ -500,6 +505,11 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   void _onPickerPanEnd(DragEndDetails details) {
     final idx = _hoveredPickerIndex;
     if (idx >= 0 && idx < _reactionOptions.length) {
+      try {
+        HapticFeedback.mediumImpact();
+      } catch (e) {
+        // Haptic feedback not supported, continue
+      }
       _setReaction(_reactionOptions[idx].key);
       _hapticSelect();
     }
@@ -562,6 +572,11 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               final isSelected = option.key == _currentReaction;
               return GestureDetector(
                 onTap: () {
+                  try {
+                    HapticFeedback.mediumImpact();
+                  } catch (e) {
+                    // Haptic feedback not supported, continue
+                  }
                   Navigator.pop(context);
                   _setReaction(option.key);
                 },
@@ -619,6 +634,11 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
           },
           onLongPressEnd: (details) {
             if (_pickerVisible && _hoveredPickerIndex >= 0 && _hoveredPickerIndex < _reactionOptions.length) {
+              try {
+                HapticFeedback.mediumImpact();
+              } catch (e) {
+                // Haptic feedback not supported, continue
+              }
               _setReaction(_reactionOptions[_hoveredPickerIndex].key);
             }
             setState(() => _hoveredPickerIndex = -1);
@@ -724,7 +744,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -741,25 +761,28 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   Widget _buildReactionsSummary() {
     final topReactions = _topReactions();
     if (_totalReactions == 0) {
-      return Text(
-        'Be the first to react',
-        style: GoogleFonts.poppins(
-          color: Colors.grey,
-          fontSize: 12,
-        ),
-      );
+      return const SizedBox.shrink();
     }
 
-    return Row(
-      children: [
-        if (topReactions.isNotEmpty)
-          Row(
-            children: topReactions
-                .map(
-                  (option) => Container(
-                    width: 22,
-                    height: 22,
-                    margin: const EdgeInsets.only(right: 4),
+    return GestureDetector(
+      onTap: () {
+        try {
+          HapticFeedback.lightImpact();
+        } catch (e) {
+          // Haptic feedback not supported, continue
+        }
+        _openReactionsPanel();
+      },
+      child: Row(
+        children: [
+          if (topReactions.isNotEmpty)
+            Row(
+              children: topReactions
+                  .map(
+                    (option) => Container(
+                      width: 22,
+                      height: 22,
+                      margin: const EdgeInsets.only(right: 4),
                     decoration: BoxDecoration(
                       color: Colors.grey[900],
                       shape: BoxShape.circle,
@@ -782,6 +805,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
           ),
         ),
       ],
+    ),
     );
   }
 
@@ -824,6 +848,11 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
         onTapCancel: () => setState(() => _hoveredPickerIndex = -1),
         onTapUp: (_) {
           setState(() => _hoveredPickerIndex = -1);
+          try {
+            HapticFeedback.mediumImpact();
+          } catch (e) {
+            // Haptic feedback not supported, continue
+          }
           _setReaction(option.key);
           _hapticSelect();
           _hideInlineReactionPicker();

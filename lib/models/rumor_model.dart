@@ -84,6 +84,36 @@ class RumorModel {
     };
   }
 
+  Map<String, dynamic> toCacheMap() {
+    return {
+      'id': id,
+      'content': content,
+      'timestamp': timestamp.toIso8601String(),
+      'yesVotes': yesVotes,
+      'noVotes': noVotes,
+      'commentCount': commentCount,
+      'votedYesByUsers': votedYesByUsers,
+      'votedNoByUsers': votedNoByUsers,
+      'credibilityScore': credibilityScore,
+    };
+  }
+
+  factory RumorModel.fromCacheMap(Map<String, dynamic> map) {
+    return RumorModel(
+      id: map['id'] ?? '',
+      content: map['content'] ?? '',
+      timestamp: map['timestamp'] is String
+          ? DateTime.tryParse(map['timestamp']) ?? DateTime.now()
+          : DateTime.now(),
+      yesVotes: map['yesVotes'] ?? 0,
+      noVotes: map['noVotes'] ?? 0,
+      commentCount: map['commentCount'] ?? 0,
+      votedYesByUsers: List<String>.from(map['votedYesByUsers'] ?? []),
+      votedNoByUsers: List<String>.from(map['votedNoByUsers'] ?? []),
+      credibilityScore: (map['credibilityScore'] as num?)?.toDouble() ?? 0.5,
+    );
+  }
+
   // Create a copy with updated values
   RumorModel copyWith({
     String? id,

@@ -3,7 +3,6 @@ import 'dart:ui';
 import '../services/auth_service.dart';
 import 'pending_verification_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'verification_complete_page.dart';
 
 
 class LoginPage extends StatefulWidget {

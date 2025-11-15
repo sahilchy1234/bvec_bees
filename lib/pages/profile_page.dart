@@ -298,7 +298,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   }
 
   Widget _buildAvatar(String imageUrl, String userName, {double radius = 50}) {
-    String _initials() {
+    String initials() {
       final trimmed = userName.trim();
       if (trimmed.isEmpty) return '?';
       final parts = trimmed.split(RegExp(r'\s+'));
@@ -320,7 +320,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
         ),
         alignment: Alignment.center,
         child: Text(
-          _initials(),
+          initials(),
           style: GoogleFonts.poppins(
             color: Colors.black,
             fontWeight: FontWeight.bold,

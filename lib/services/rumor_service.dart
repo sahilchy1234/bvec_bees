@@ -1,11 +1,201 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/rumor_model.dart';
 import '../models/rumor_comment_model.dart';
+import 'rumor_cache_service.dart';
 
 class RumorService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final RumorCacheService _cacheService = RumorCacheService.instance;
   static const String _rumorsCollection = 'rumors';
   static const String _commentsCollection = 'comments';
+  static const int _defaultPageSize = 20;
+  static const int _maxConcurrentRequests = 3;
+  
+  // Stream controller for debounced updates
+  StreamController<List<RumorModel>>? _streamController;
+  Timer? _debounceTimer;
+  List<RumorModel>? _lastData;
+  
+  // Pagination state
+  int _activeRequests = 0;
+  final Map<String, Completer<List<RumorModel>>> _pendingRequests = {};
+
+  // Get paginated rumors with caching
+  Future<RumorCacheResult> getRumorsPaginated({
+    int limit = _defaultPageSize,
+    String? startAfterId,
+    bool forceRefresh = false,
+  }) async {
+    // Check if we should use cache
+    if (!forceRefresh) {
+      final isFresh = await _cacheService.isCacheFresh();
+      if (isFresh) {
+        final cached = await _cacheService.getCachedRumors(
+          limit: limit,
+          startAfterId: startAfterId,
+        );
+        if (cached != null) {
+          return cached;
+        }
+      }
+    }
+    
+    // Check network connectivity
+    final hasInternet = await _cacheService.hasInternetConnection();
+    if (!hasInternet && !forceRefresh) {
+      final cached = await _cacheService.getCachedRumors(
+        limit: limit,
+        startAfterId: startAfterId,
+      );
+      if (cached != null) {
+        return cached;
+      }
+      throw Exception('No internet connection and no cached data available');
+    }
+    
+    // Implement request throttling
+    if (_activeRequests >= _maxConcurrentRequests) {
+      throw Exception('Too many concurrent requests. Please try again.');
+    }
+    
+    _activeRequests++;
+    try {
+      // Build query with pagination
+      Query query = _firestore
+          .collection(_rumorsCollection)
+          .orderBy('timestamp', descending: true);
+      
+      if (startAfterId != null) {
+        final startAfterDoc = await _firestore
+            .collection(_rumorsCollection)
+            .doc(startAfterId)
+            .get();
+        if (startAfterDoc.exists) {
+          query = query.startAfterDocument(startAfterDoc);
+        }
+      }
+      
+      final snapshot = await query.limit(limit + 5).get(); // Fetch extra for algorithm
+      
+      final rumors = snapshot.docs
+          .map((doc) => RumorModel.fromFirestore(doc))
+          .toList();
+      
+      // Apply feed algorithm
+      final processedRumors = _applyFeedAlgorithm(rumors);
+      final limitedRumors = processedRumors.take(limit).toList();
+      
+      final hasMore = rumors.length > limit;
+      final lastRumorId = limitedRumors.isNotEmpty ? limitedRumors.last.id : null;
+      
+      // Cache the results
+      await _cacheService.cacheRumors(
+        limitedRumors,
+        isAppend: startAfterId != null,
+        lastRumorId: lastRumorId,
+        hasMore: hasMore,
+      );
+      
+      return RumorCacheResult(
+        rumors: limitedRumors,
+        hasMore: hasMore,
+        lastRumorId: lastRumorId,
+        fromCache: false,
+      );
+    } finally {
+      _activeRequests--;
+    }
+  }
+  
+  // Get all rumors with real-time updates (optimized)
+  Stream<List<RumorModel>> getRumorsStream() {
+    if (_streamController == null) {
+      _streamController = StreamController<List<RumorModel>>.broadcast();
+      
+      // Use cached data initially if available
+      _initializeStreamWithCache();
+      
+      // Listen for real-time updates
+      _firestore
+          .collection(_rumorsCollection)
+          .orderBy('timestamp', descending: true)
+          .limit(50) // Limit stream to recent data for performance
+          .snapshots()
+          .listen((snapshot) {
+        final rumors = snapshot.docs
+            .map((doc) => RumorModel.fromFirestore(doc))
+            .toList();
+        final processedRumors = _applyFeedAlgorithm(rumors);
+        
+        // Debounce updates to prevent excessive rebuilds
+        _debounceTimer?.cancel();
+        _debounceTimer = Timer(const Duration(milliseconds: 500), () {
+          if (_lastData == null || !_listsEqual(_lastData!, processedRumors)) {
+            _lastData = processedRumors;
+            _streamController?.add(processedRumors);
+            
+            // Update cache with latest data
+            _cacheService.cacheRumors(processedRumors.take(20).toList());
+          }
+        });
+      });
+    }
+    
+    return _streamController!.stream;
+  }
+  
+  void _initializeStreamWithCache() async {
+    try {
+      final cached = await _cacheService.getCachedRumors(limit: 20);
+      if (cached != null && cached.rumors.isNotEmpty) {
+        _streamController?.add(cached.rumors);
+        _lastData = cached.rumors;
+      }
+    } catch (e) {
+      print('Error initializing stream with cache: $e');
+    }
+  }
+  
+  bool _listsEqual(List<RumorModel> a, List<RumorModel> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id || 
+          a[i].yesVotes != b[i].yesVotes || 
+          a[i].noVotes != b[i].noVotes ||
+          a[i].votedYesByUsers.length != b[i].votedYesByUsers.length ||
+          a[i].votedNoByUsers.length != b[i].votedNoByUsers.length) {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  void dispose() {
+    _debounceTimer?.cancel();
+    _streamController?.close();
+    _streamController = null;
+    _pendingRequests.clear();
+  }
+  
+  // Performance monitoring
+  Future<Map<String, dynamic>> getPerformanceStats() async {
+    final cacheStats = await _cacheService.getCacheStats();
+    return {
+      'cache': cacheStats,
+      'activeRequests': _activeRequests,
+      'pendingRequests': _pendingRequests.length,
+      'streamControllerActive': _streamController != null,
+      'lastDataCount': _lastData?.length ?? 0,
+    };
+  }
+  
+  // Force refresh cache
+  Future<void> refreshCache() async {
+    await _cacheService.clearCache();
+    _lastData = null;
+  }
 
   // Create a new rumor
   Future<String> createRumor(String content) async {
@@ -26,34 +216,32 @@ class RumorService {
     }
   }
 
-  // Get all rumors once (no real-time updates)
-  Future<List<RumorModel>> getRumorsOnce() async {
+  // Get all rumors once (optimized with cache)
+  Future<List<RumorModel>> getRumorsOnce({int limit = 50}) async {
     try {
+      // Try cache first
+      final cached = await _cacheService.getCachedRumors(limit: limit);
+      if (cached != null && cached.fromCache) {
+        return cached.rumors;
+      }
+      
       final snapshot = await _firestore
           .collection(_rumorsCollection)
           .orderBy('timestamp', descending: true)
+          .limit(limit)
           .get();
       final rumors = snapshot.docs
           .map((doc) => RumorModel.fromFirestore(doc))
           .toList();
-      return _applyFeedAlgorithm(rumors);
+      final processedRumors = _applyFeedAlgorithm(rumors);
+      
+      // Cache results
+      await _cacheService.cacheRumors(processedRumors);
+      
+      return processedRumors;
     } catch (e) {
       throw Exception('Failed to fetch rumors: $e');
     }
-  }
-
-  // Get all rumors with real-time updates
-  Stream<List<RumorModel>> getRumorsStream() {
-    return _firestore
-        .collection(_rumorsCollection)
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      final rumors = snapshot.docs
-          .map((doc) => RumorModel.fromFirestore(doc))
-          .toList();
-      return _applyFeedAlgorithm(rumors);
-    });
   }
 
   // Get a single rumor
