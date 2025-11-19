@@ -9,6 +9,7 @@ import 'feed_page.dart';
 import 'profile_page.dart';
 import 'search_page.dart';
 import 'conversations_page.dart';
+import 'notifications_page.dart';
 import 'swipe_page.dart';
 import 'rumor_feed_page.dart';
 
@@ -175,7 +176,8 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final bool showGlobalAppBar = _selectedIndex != 2;
-    final double topPadding = showGlobalAppBar ? 72 : 0;
+    const double appBarGap = 25;
+    final double topPadding = showGlobalAppBar ? (70 + appBarGap) : 0;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -203,8 +205,8 @@ class _HomePageState extends State<HomePage> {
                   curve: Curves.easeOut,
                   opacity: _showAppBar ? 1 : 0,
                   child: Container(
-                    height: 56,
-                    color: Colors.black,
+                    height: 70,
+                    color: const Color.fromARGB(255, 14, 14, 14),
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -239,8 +241,24 @@ class _HomePageState extends State<HomePage> {
                             IconButton(
                               icon: const FaIcon(FontAwesomeIcons.heart, size: 18),
                               color: Colors.white,
-                              onPressed: () {},
-                              tooltip: 'Likes',
+                              onPressed: () async {
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                final currentUserId =
+                                    prefs.getString('current_user_uid') ?? '';
+
+                                if (currentUserId.isEmpty) return;
+
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => NotificationsPage(
+                                      currentUserId: currentUserId,
+                                    ),
+                                  ),
+                                );
+                              },
+                              tooltip: 'Activity',
                             ),
                             IconButton(
                               icon: const FaIcon(FontAwesomeIcons.comment, size: 18),

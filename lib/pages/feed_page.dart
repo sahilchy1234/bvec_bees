@@ -185,7 +185,7 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
               children: [
                 const SizedBox(height: 12),
                 _buildCreatePostSection(),
-                const Divider(color: Colors.grey, height: 1),
+                const Divider(color: Color.fromARGB(255, 0, 0, 0), height: 4,thickness: 4),
               ],
             ),
           ),
@@ -328,7 +328,7 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
 
   Widget _buildCreatePostSection() {
     return Container(
-      color: Colors.black,
+      color: const Color.fromARGB(255, 12, 12, 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         children: [
@@ -359,7 +359,7 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
                     decoration: BoxDecoration(
                       color: Colors.grey[900],
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.yellow.withOpacity(0.3), width: 1),
+                      // border: Border.all(color: Colors.yellow.withOpacity(0.3), width: 1),
                     ),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
@@ -378,7 +378,7 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
             ],
           ),
           const SizedBox(height: 12),
-          const Divider(color: Colors.grey, height: 1),
+          // const Divider(color: Color.fromARGB(255, 0, 0, 0), height: 2, thickness: 4),
           const SizedBox(height: 12),
           // Action buttons
           Row(
@@ -434,8 +434,8 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.yellow.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.yellow.withOpacity(0.3), width: 1),
+          borderRadius: BorderRadius.circular(15),
+          // border: Border.all(color: Colors.yellow.withOpacity(0.3), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -449,7 +449,7 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
             Text(
               label,
               style: GoogleFonts.poppins(
-                color: Colors.yellow,
+                color: const Color.fromARGB(255, 251, 251, 251),
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),

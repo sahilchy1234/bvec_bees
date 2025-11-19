@@ -9,7 +9,19 @@ class AuthService {
   Future<void> registerUser(UserModel user) async {
     try {
       final docRef = _firestore.collection('users').doc(user.uid);
-      await docRef.set(user.toMap(), SetOptions(merge: true));
+
+      // Start from the user model map
+      final data = user.toMap();
+
+      // Ensure notification preference fields exist for new users
+      data['chatNotificationsEnabled'] ??= true;
+      data['likeNotificationsEnabled'] ??= true;
+      data['tagNotificationsEnabled'] ??= true;
+      data['commentNotificationsEnabled'] ??= true;
+      data['matchNotificationsEnabled'] ??= true;
+      data['notificationFrequency'] ??= 'medium';
+
+      await docRef.set(data, SetOptions(merge: true));
     } on PlatformException catch (e) {
       throw Exception('Platform error during register: ${e.message}');
     } catch (e) {

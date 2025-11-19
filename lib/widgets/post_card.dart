@@ -648,10 +648,6 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               color: isActive ? color.withOpacity(0.12) : Colors.grey[900],
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isActive ? color.withOpacity(0.4) : Colors.grey[800]!,
-                width: 1,
-              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -911,7 +907,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.black,
+      color: const Color.fromARGB(255, 14, 14, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1001,7 +997,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
             ),
           // Engagement stats
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -1012,66 +1008,77 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                     child: _buildReactionsSummary(),
                   ),
                 ),
+                const SizedBox(width: 12),
                 Text(
                   '${widget.post.comments} comments',
                   style: GoogleFonts.poppins(
                     color: Colors.grey,
                     fontSize: 12,
+                    letterSpacing: 0.1,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 18),
                 Text(
                   '${widget.post.shares} shares',
                   style: GoogleFonts.poppins(
                     color: Colors.grey,
                     fontSize: 12,
+                    letterSpacing: 0.1,
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(color: Colors.grey, height: 1),
           // Action buttons
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildReactionButton(),
-                GestureDetector(
-                  onTap: widget.onComment,
-                  child: _buildActionButton(
-                    icon: FontAwesomeIcons.comment,
-                    label: 'Comment',
-                    color: Colors.grey,
-                    onTap: widget.onComment,
+                Expanded(
+                  child: Center(child: _buildReactionButton()),
+                ),
+                Expanded(
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: widget.onComment,
+                      child: _buildActionButton(
+                        icon: FontAwesomeIcons.comment,
+                        label: 'Comment',
+                        color: Colors.grey,
+                        onTap: widget.onComment,
+                      ),
+                    ),
                   ),
                 ),
-                _buildActionButton(
-                  icon: FontAwesomeIcons.share,
-                  label: 'Share',
-                  color: Colors.yellow,
-                  onTap: () async {
-                    try {
-                      await _postService.sharePost(widget.post.id);
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Post shared!')),
-                        );
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error: $e')),
-                        );
-                      }
-                    }
-                  },
+                Expanded(
+                  child: Center(
+                    child: _buildActionButton(
+                      icon: FontAwesomeIcons.share,
+                      label: 'Share',
+                      color: Colors.grey,
+                      onTap: () async {
+                        try {
+                          await _postService.sharePost(widget.post.id);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Post shared!')),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: $e')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          const Divider(color: Colors.grey, height: 1),
+          const Divider(color: Color.fromARGB(255, 0, 0, 0), height: 30, thickness: 10),
         ],
       ),
     );
@@ -1088,13 +1095,13 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: isActive
-            ? BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: color.withOpacity(0.3), width: 1),
-              )
-            : null,
+        // decoration: isActive
+        //     ? BoxDecoration(
+        //         color: color.withOpacity(0.1),
+        //         borderRadius: BorderRadius.circular(20),
+        //         border: Border.all(color: color.withOpacity(0.3), width: 1),
+        //       )
+        //     : null,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1205,14 +1212,14 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
               child: Container(
                 constraints: const BoxConstraints(maxWidth: 200),
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.yellow,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                // decoration: BoxDecoration(
+                //   color: Colors.yellow,
+                //   borderRadius: BorderRadius.circular(12),
+                // ),
                 child: Text(
                   matchText,
                   style: GoogleFonts.poppins(
-                    color: Colors.black,
+                    color: Colors.yellow,
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     height: 1.3,

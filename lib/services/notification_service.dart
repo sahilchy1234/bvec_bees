@@ -12,6 +12,45 @@ class NotificationService {
 
   NotificationService._internal();
 
+  /// One-time helper to backfill notification preference fields
+  /// for all existing users. Call this from an admin/debug flow,
+  /// then you can remove or ignore it afterwards.
+  Future<void> backfillNotificationPrefs() async {
+    try {
+      final usersSnap = await _firestore.collection('users').get();
+
+      for (final doc in usersSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+        final updates = <String, dynamic>{};
+
+        if (!data.containsKey('chatNotificationsEnabled')) {
+          updates['chatNotificationsEnabled'] = true;
+        }
+        if (!data.containsKey('likeNotificationsEnabled')) {
+          updates['likeNotificationsEnabled'] = true;
+        }
+        if (!data.containsKey('tagNotificationsEnabled')) {
+          updates['tagNotificationsEnabled'] = true;
+        }
+        if (!data.containsKey('commentNotificationsEnabled')) {
+          updates['commentNotificationsEnabled'] = true;
+        }
+        if (!data.containsKey('matchNotificationsEnabled')) {
+          updates['matchNotificationsEnabled'] = true;
+        }
+        if (!data.containsKey('notificationFrequency')) {
+          updates['notificationFrequency'] = 'medium';
+        }
+
+        if (updates.isNotEmpty) {
+          await doc.reference.update(updates);
+        }
+      }
+    } catch (e) {
+      print('Error backfilling notification preferences: $e');
+    }
+  }
+
   /// Send notification for chat messages
   Future<void> sendChatNotification({
     required String recipientId,
@@ -25,8 +64,10 @@ class NotificationService {
       // Check if recipient has notifications enabled for chats
       final recipientDoc =
           await _firestore.collection('users').doc(recipientId).get();
+      final recipientData =
+          recipientDoc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
       final chatNotificationsEnabled =
-          recipientDoc['chatNotificationsEnabled'] ?? true;
+          (recipientData['chatNotificationsEnabled'] as bool?) ?? true;
 
       if (!chatNotificationsEnabled) return;
 
@@ -65,8 +106,10 @@ class NotificationService {
       // Check if post owner has notifications enabled
       final ownerDoc =
           await _firestore.collection('users').doc(postOwnerId).get();
+      final ownerData =
+          ownerDoc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
       final likeNotificationsEnabled =
-          ownerDoc['likeNotificationsEnabled'] ?? true;
+          (ownerData['likeNotificationsEnabled'] as bool?) ?? true;
 
       if (!likeNotificationsEnabled) return;
 
@@ -109,8 +152,11 @@ class NotificationService {
       // Check if tagged user has notifications enabled
       final taggedUserDoc =
           await _firestore.collection('users').doc(taggedUserId).get();
+      final taggedUserData = taggedUserDoc.data()
+              as Map<String, dynamic>? ??
+          <String, dynamic>{};
       final tagNotificationsEnabled =
-          taggedUserDoc['tagNotificationsEnabled'] ?? true;
+          (taggedUserData['tagNotificationsEnabled'] as bool?) ?? true;
 
       if (!tagNotificationsEnabled) return;
 
@@ -152,8 +198,10 @@ class NotificationService {
       // Check if post owner has notifications enabled
       final ownerDoc =
           await _firestore.collection('users').doc(postOwnerId).get();
+      final ownerData =
+          ownerDoc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
       final commentNotificationsEnabled =
-          ownerDoc['commentNotificationsEnabled'] ?? true;
+          (ownerData['commentNotificationsEnabled'] as bool?) ?? true;
 
       if (!commentNotificationsEnabled) return;
 
@@ -193,8 +241,10 @@ class NotificationService {
     try {
       // Check if user has notifications enabled for matches
       final userDoc = await _firestore.collection('users').doc(userId1).get();
+      final userData =
+          userDoc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
       final matchNotificationsEnabled =
-          userDoc['matchNotificationsEnabled'] ?? true;
+          (userData['matchNotificationsEnabled'] as bool?) ?? true;
 
       if (!matchNotificationsEnabled) return;
 

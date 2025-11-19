@@ -83,10 +83,11 @@ class FCMService {
 
   Future<void> _saveFCMToken(String userId, String token) async {
     try {
-      await _firestore.collection('users').doc(userId).update({
+      // Use set with merge so the document is created if it doesn't exist yet
+      await _firestore.collection('users').doc(userId).set({
         'fcmToken': token,
         'lastTokenUpdate': DateTime.now(),
-      });
+      }, SetOptions(merge: true));
     } catch (e) {
       print('Error saving FCM token: $e');
     }
@@ -165,7 +166,9 @@ class FCMService {
 
       // Get user's FCM token
       final userDoc = await _firestore.collection('users').doc(userId).get();
-      final fcmToken = userDoc['fcmToken'] as String?;
+      final userData =
+          userDoc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+      final fcmToken = userData['fcmToken'] as String?;
 
       if (fcmToken != null) {
         // Send via FCM (requires backend implementation)
