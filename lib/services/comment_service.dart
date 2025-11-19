@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../models/comment_model.dart';
+import 'notification_service.dart';
 
 class CommentService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -39,6 +40,21 @@ class CommentService {
       await _firestore.collection('posts').doc(postId).update({
         'comments': FieldValue.increment(1),
       });
+
+      // Get post owner to send notification
+      final postDoc = await _firestore.collection('posts').doc(postId).get();
+      final postOwnerId = postDoc['authorId'] as String?;
+
+      if (postOwnerId != null && postOwnerId != authorId) {
+        await NotificationService().sendCommentNotification(
+          postOwnerId: postOwnerId,
+          commenterId: authorId,
+          commenterName: authorName,
+          commenterImage: authorImage,
+          postId: postId,
+          commentContent: content,
+        );
+      }
 
       return commentId;
     } catch (e) {

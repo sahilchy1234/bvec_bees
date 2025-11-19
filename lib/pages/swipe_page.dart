@@ -502,6 +502,78 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
     return _dragOffset;
   }
 
+  Widget _buildSwipeIndicatorOverlay() {
+    final activeOffset = _computeActiveOffset();
+    final dx = activeOffset.dx;
+
+    if (dx.abs() < 0.05) {
+      return const SizedBox.shrink();
+    }
+
+    const swipeThreshold = 0.25;
+    final intensity = (dx.abs() / swipeThreshold).clamp(0.0, 1.0);
+
+    final bool isHotDirection = dx > 0;
+    final Color color = isHotDirection ? Colors.yellow : Colors.red;
+    final String label = isHotDirection ? 'HOT' : 'NOT';
+
+    return IgnorePointer(
+      child: AnimatedOpacity(
+        opacity: intensity,
+        duration: const Duration(milliseconds: 80),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                color.withOpacity(0.35 * intensity),
+                Colors.transparent,
+              ],
+            ),
+          ),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.65),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(color: color, width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.45),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isHotDirection ? Icons.local_fire_department : Icons.close,
+                    color: color,
+                    size: 26,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    style: GoogleFonts.poppins(
+                      color: color,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 24,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildUserAvatar(String imageUrl, String userName, {double radius = 100}) {
     if (imageUrl.isEmpty) {
       final initials = userName
@@ -913,9 +985,12 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 _buildPodiumTile(2),
+                const SizedBox(width: 4),
                 _buildPodiumTile(0, highlight: true),
+                const SizedBox(width: 4),
                 _buildPodiumTile(1),
               ],
             ),
@@ -942,75 +1017,101 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
             ? Colors.grey[400]!
             : Colors.brown[300]!;
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ProfilePage(userId: user.uid),
-          ),
-        );
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: highlight ? 86 : 74,
-                height: highlight ? 86 : 74,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [base.withOpacity(0.35), Colors.transparent],
-                  ),
-                ),
-              ),
-              _buildUserAvatar(user.avatarUrl ?? '', user.name ?? 'User', radius: highlight ? 36 : 32),
-              Positioned(
-                bottom: 4,
-                right: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: base,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text('#$rank', style: GoogleFonts.poppins(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 11)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            user.name ?? 'Unknown',
-            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: highlight ? 14 : 13),
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 6),
-          Container(
-            width: 70,
-            height: height * 0.2,
-            decoration: BoxDecoration(
-              color: Colors.grey[850],
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(8),
-              ),
-              border: Border.all(color: base.withOpacity(0.35)),
+    final double tileWidth = highlight ? 110 : 90;
+
+    return SizedBox(
+      width: tileWidth,
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ProfilePage(userId: user.uid),
             ),
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+          );
+        },
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Stack(
+              alignment: Alignment.center,
               children: [
-                Icon(Icons.local_fire_department, size: 14, color: base),
-                const SizedBox(width: 4),
-                Text('${user.hotCount}', style: GoogleFonts.poppins(color: base, fontWeight: FontWeight.w700, fontSize: 12)),
+                Container(
+                  width: highlight ? 86 : 74,
+                  height: highlight ? 86 : 74,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [base.withOpacity(0.35), Colors.transparent],
+                    ),
+                  ),
+                ),
+                _buildUserAvatar(user.avatarUrl ?? '', user.name ?? 'User', radius: highlight ? 36 : 32),
+                Positioned(
+                  bottom: 4,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: base,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '#$rank',
+                      style: GoogleFonts.poppins(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              user.name ?? 'Unknown',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: highlight ? 14 : 13,
+              ),
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+            ),
+            const SizedBox(height: 6),
+            Container(
+              width: 70,
+              height: height * 0.2,
+              decoration: BoxDecoration(
+                color: Colors.grey[850],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  topRight: Radius.circular(8),
+                ),
+                border: Border.all(color: base.withOpacity(0.35)),
+              ),
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.local_fire_department, size: 14, color: base),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${user.hotCount}',
+                    style: GoogleFonts.poppins(
+                      color: base,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1076,23 +1177,6 @@ Widget _buildLeaderboardRow(int index, int maxHot) {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (user.boostUntil != null && user.boostUntil!.isAfter(DateTime.now()))
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.purple.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.purple.withOpacity(0.35)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.bolt, size: 12, color: Colors.purpleAccent),
-                            SizedBox(width: 4),
-                            Text('Boost', style: TextStyle(color: Colors.purpleAccent, fontSize: 10, fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
                   ],
                 ),
                 if (user.branch != null)
@@ -1303,50 +1387,18 @@ Widget _buildPlaceholder({
                 onPanStart: (_) => _handleDragStart(),
                 onPanUpdate: _handleDragUpdate,
                 onPanEnd: _handleDragEnd,
-                child: _buildProfileCard(currentUser),
+                child: Stack(
+                  children: [
+                    _buildProfileCard(currentUser),
+                    _buildSwipeIndicatorOverlay(),
+                  ],
+                ),
               ),
             ),
           ),
         ),
 
-        // Action buttons
-        Positioned(
-          bottom: 16,
-          left: 0,
-          right: 0,
-          child: AnimatedBuilder(
-            animation: _swipeController,
-            builder: (context, child) {
-              final width = MediaQuery.of(context).size.width;
-              final activeOffset = _computeActiveOffset();
-              final dx = activeOffset.dx * width;
-              final dy = activeOffset.dy * 120;
-              return Transform.translate(
-                offset: Offset(dx, dy),
-                child: child,
-              );
-            },
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildActionButton(
-                  icon: Icons.close,
-                  color: Colors.redAccent,
-                  label: '',
-                  onPressed: () => _triggerSwipe(false),
-                ),
-                const SizedBox(width: 28),
-                _buildActionButton(
-                  icon: Icons.local_fire_department,
-                  color: Colors.yellow,
-                  label: '',
-                  onPressed: () => _triggerSwipe(true),
-                  usePulse: true,
-                ),
-              ],
-            ),
-          ),
-        ),
+        // Action buttons removed for cleaner UI - swiping still works
       ],
     );
   }
@@ -1372,60 +1424,206 @@ Widget _buildPlaceholder({
         borderRadius: BorderRadius.circular(22),
         child: Column(
           children: [
+            // Top image / avatar section with subtle gradient
             Expanded(
               flex: 3,
               child: Container(
-                color: Colors.black,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      const Color(0xFF111111),
+                      Colors.black,
+                    ],
+                  ),
+                ),
                 child: Center(
-                  child: _buildUserAvatar(
-                    user.avatarUrl ?? '',
-                    user.name ?? 'User',
-                    radius: 120,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 260,
+                        height: 260,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              Colors.yellow.withOpacity(0.22),
+                              Colors.transparent,
+                            ],
+                          ),
+                        ),
+                      ),
+                      _buildUserAvatar(
+                        user.avatarUrl ?? '',
+                        user.name ?? 'User',
+                        radius: 120,
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
+            // Info section
             Expanded(
               flex: 2,
               child: Container(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.grey[900]!,
+                      const Color(0xFF151515),
+                    ],
+                  ),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      user.name ?? 'Unknown',
-                      style: GoogleFonts.poppins(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                user.name ?? 'Unknown',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.yellow.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.yellow.withOpacity(0.5)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.local_fire_department,
+                                    size: 14,
+                                    color: Colors.yellow,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Hot & Not',
+                                    style: TextStyle(
+                                      color: Colors.yellow,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            if (user.branch != null && user.branch!.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[850],
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.school,
+                                      size: 14,
+                                      color: Colors.white70,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      user.branch!,
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (user.semester != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[850],
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.timeline,
+                                      size: 14,
+                                      color: Colors.white70,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Semester ${user.semester}',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white70,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
-                    // const SizedBox(height: 8),
-                    // if (user.rollNo != null)
-                    //   Text(
-                    //     user.rollNo!,
-                    //     style: GoogleFonts.poppins(
-                    //       color: Colors.grey,
-                    //       fontSize: 16,
-                    //     ),
-                    //   ),
-                    const SizedBox(height: 4),
-                    if (user.branch != null)
-                      Text(
-                        user.branch!,
-                        style: GoogleFonts.poppins(
-                          color: Colors.grey,
-                          fontSize: 14,
+                    Column(
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          height: 1,
+                          color: Colors.white10,
                         ),
-                      ),
-                    if (user.semester != null)
-                      Text(
-                        'Semester ${user.semester}',
-                        style: GoogleFonts.poppins(
-                          color: Colors.grey,
-                          fontSize: 14,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Swipe left for Not',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white38,
+                                fontSize: 11,
+                              ),
+                            ),
+                            Text(
+                              'Swipe right for Hot',
+                              style: GoogleFonts.poppins(
+                                color: Colors.yellow.withOpacity(0.9),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -1436,71 +1634,6 @@ Widget _buildPlaceholder({
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required Color color,
-    required String label,
-    required VoidCallback onPressed,
-    bool usePulse = false,
-  }) {
-    return GestureDetector(
-      onTapDown: (_) => _scaleController.forward(),
-      onTapUp: (_) {
-        _scaleController.reverse();
-        onPressed();
-      },
-      onTapCancel: () => _scaleController.reverse(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedBuilder(
-            animation: _pulseController,
-            builder: (context, pulseChild) {
-              final pulseScale = usePulse ? _pulseAnimation.value : 1.0;
-              return AnimatedBuilder(
-                animation: _scaleAnimation,
-                builder: (context, scaleChild) {
-                  return Transform.scale(
-                    scale: _scaleAnimation.value * pulseScale,
-                    child: scaleChild,
-                  );
-                },
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    // boxShadow: [
-                      // BoxShadow(
-                        // color: color.withOpacity(0.35),
-                        // blurRadius: 14,
-                        // offset: const Offset(0, 6),
-                      // ),
-                    // ],
-                  ),
-                  child: Icon(
-                    icon,
-                    color: Colors.black,
-                    size: 26,
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Future<void> _refreshCurrentTab() async {
     switch (_selectedTab) {

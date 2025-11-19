@@ -5,6 +5,7 @@ import 'dart:io';
 import '../models/post_model.dart';
 import 'image_compression_service.dart';
 import 'feed_cache_service.dart';
+import 'notification_service.dart';
 
 class FeedResult {
   final List<Post> posts;
@@ -313,6 +314,9 @@ class PostService {
         final data = snapshot.data() as Map<String, dynamic>;
         final reactions = Map<String, String>.from(data['reactions'] ?? {});
         final reactionCountsDynamic = Map<String, dynamic>.from(data['reactionCounts'] ?? {});
+        final postOwnerId = data['authorId'] as String?;
+        final authorName = data['authorName'] as String?;
+        final authorImage = data['authorImage'] as String?;
 
         final Map<String, int> reactionCounts = {for (final key in supportedReactions) key: 0};
         reactionCountsDynamic.forEach((key, value) {
@@ -355,6 +359,23 @@ class PostService {
           'likes': totalReactions,
           'likedBy': likedBy,
         });
+
+        // Send notification after transaction completes
+        if (postOwnerId != null && postOwnerId != userId) {
+          // Get user info for notification
+          final userDoc = await _firestore.collection('users').doc(userId).get();
+          final userName = userDoc['name'] as String? ?? 'Someone';
+          final userImage = userDoc['avatarUrl'] as String?;
+
+          await NotificationService().sendPostLikeNotification(
+            postOwnerId: postOwnerId,
+            likerId: userId,
+            likerName: userName,
+            likerImage: userImage ?? '',
+            postId: postId,
+            reactionType: reactionKey,
+          );
+        }
       });
     } catch (e) {
       throw Exception('Failed to set reaction: $e');

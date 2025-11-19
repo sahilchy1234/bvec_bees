@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:uuid/uuid.dart';
 import '../models/message_model.dart';
 import '../models/conversation_model.dart';
+import 'notification_service.dart';
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -100,6 +101,16 @@ class ChatService {
         'lastMessageTime': DateTime.now(),
         'unreadCounts.$recipientId': FieldValue.increment(1),
       });
+
+      // Send chat notification
+      await NotificationService().sendChatNotification(
+        recipientId: recipientId,
+        senderId: senderId,
+        senderName: senderName,
+        senderImage: senderImage,
+        messageContent: content,
+        conversationId: conversationId,
+      );
     } catch (e) {
       throw Exception('Failed to send message: $e');
     }

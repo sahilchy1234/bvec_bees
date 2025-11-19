@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 // simport 'package:firebase_performance/firebase_performance.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/home_page.dart';
 import 'pages/pending_verification_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'services/fcm_service.dart';
 
 import 'firebase_options.dart';
 
@@ -17,6 +19,12 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Initialize FCM
+  final currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser != null) {
+    await FCMService().initialize(currentUser.uid);
+  }
   
   // Initialize Performance Monitoring
   // FirebasePerformance performance = FirebasePerformance.instance;

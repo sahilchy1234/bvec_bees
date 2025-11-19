@@ -3,7 +3,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../models/rumor_model.dart';
-import '../models/user_model.dart';
 import '../services/rumor_service.dart';
 import '../services/auth_service.dart';
 import '../services/rumor_performance_service.dart';
@@ -36,7 +35,7 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
   bool _hasMore = true;
   String? _lastRumorId;
   bool _isLoadingMore = false;
-  bool _isRefreshing = false;
+  final bool _isRefreshing = false;
   final ScrollController _scrollController = ScrollController();
   Timer? _preloadTimer;
   String? _error;

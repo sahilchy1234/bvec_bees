@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/rumor_model.dart';
 import '../models/rumor_comment_model.dart';
 import 'rumor_cache_service.dart';

@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../models/match_model.dart';
 import '../models/user_model.dart';
 import 'chat_service.dart';
+import 'notification_service.dart';
 
 class MatchService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -74,6 +75,32 @@ class MatchService {
             );
 
             await _firestore.collection('matches').doc(matchId).set(match.toMap());
+
+            // Get user info for notifications
+            final user1Doc = await _firestore.collection('users').doc(user1Id).get();
+            final user2Doc = await _firestore.collection('users').doc(user2Id).get();
+
+            final user1Name = user1Doc['name'] as String? ?? 'Someone';
+            final user1Image = user1Doc['avatarUrl'] as String? ?? '';
+            final user2Name = user2Doc['name'] as String? ?? 'Someone';
+            final user2Image = user2Doc['avatarUrl'] as String? ?? '';
+
+            // Send match notifications to both users
+            await NotificationService().sendMatchNotification(
+              userId1: user1Id,
+              userId2: user2Id,
+              user2Name: user2Name,
+              user2Image: user2Image,
+              matchId: matchId,
+            );
+
+            await NotificationService().sendMatchNotification(
+              userId1: user2Id,
+              userId2: user1Id,
+              user2Name: user1Name,
+              user2Image: user1Image,
+              matchId: matchId,
+            );
           }
         }
       }

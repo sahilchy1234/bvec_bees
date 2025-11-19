@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'dart:collection';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'rumor_cache_service.dart';
-import '../models/rumor_model.dart';
 
 class RumorPerformanceService {
   static RumorPerformanceService? _instance;
