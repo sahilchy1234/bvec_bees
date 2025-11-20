@@ -236,7 +236,7 @@ class FCMService {
       );
 
       try {
-        await http.post(
+        final response = await http.post(
           uri,
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode({
@@ -247,6 +247,9 @@ class FCMService {
             'data': data ?? <String, dynamic>{},
           }),
         );
+
+        print('[FCM] Vercel sendNotification status: '
+            '${response.statusCode}, body: ${response.body}');
       } catch (e) {
         print('Error calling Vercel notification endpoint: $e');
       }
