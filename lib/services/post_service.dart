@@ -132,6 +132,27 @@ class PostService {
       );
 
       await _firestore.collection('posts').doc(postId).set(post.toMap());
+
+      // Send tag notifications to mentioned users
+      if (mentions.isNotEmpty) {
+        final uniqueMentions = mentions.toSet();
+        for (final taggedUserId in uniqueMentions) {
+          try {
+            await NotificationService().sendTagNotification(
+              taggedUserId: taggedUserId,
+              taggerId: authorId,
+              taggerName: authorName,
+              taggerImage: authorImage,
+              postId: postId,
+              postPreview: content,
+            );
+          } catch (e) {
+            // Ignore individual tag notification failures
+            print('Error sending tag notification for user $taggedUserId: $e');
+          }
+        }
+      }
+
       return postId;
     } catch (e) {
       throw Exception('Failed to create post: $e');

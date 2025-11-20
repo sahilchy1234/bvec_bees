@@ -267,6 +267,33 @@ class NotificationService {
     }
   }
 
+  /// Send notification when someone votes "Hot" on a user
+  Future<void> sendHotVoteNotification({
+    required String targetUserId,
+    required String voterId,
+    required String voterName,
+    required String voterImage,
+  }) async {
+    try {
+      await _fcmService.sendNotification(
+        userId: targetUserId,
+        type: 'hot_vote',
+        title: '$voterName thinks you\'re hot! 🔥',
+        body: 'Open Beezy to see their profile.',
+        senderId: voterId,
+        senderName: voterName,
+        senderImage: voterImage,
+        relatedId: voterId,
+        data: {
+          'type': 'hot_vote',
+          'voterId': voterId,
+        },
+      );
+    } catch (e) {
+      print('Error sending hot vote notification: $e');
+    }
+  }
+
   /// Get emoji for reaction type
   String _getReactionEmoji(String reactionType) {
     const reactionEmojis = {

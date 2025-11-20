@@ -4,6 +4,7 @@ import 'dart:math';
 import '../models/match_model.dart';
 import '../models/user_model.dart';
 import 'chat_service.dart';
+import 'notification_service.dart';
 
 class HotNotService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -155,6 +156,23 @@ class HotNotService {
           'hotCount': FieldValue.increment(1),
         });
         
+        // Send notification to the user who was hotted
+        try {
+          final voterDoc = await _firestore.collection('users').doc(voterId).get();
+          final voterName = voterDoc.data()?['name'] as String? ?? 'Someone';
+          final voterImage = voterDoc.data()?['avatarUrl'] as String? ?? '';
+
+          await NotificationService().sendHotVoteNotification(
+            targetUserId: targetId,
+            voterId: voterId,
+            voterName: voterName,
+            voterImage: voterImage,
+          );
+        } catch (e) {
+          // Ignore notification errors here
+          print('Error sending hot vote notification: $e');
+        }
+        
         // Check for mutual match
         final isMatch = await _checkAndCreateMatch(voterId, targetId);
         return isMatch;
@@ -272,6 +290,27 @@ class HotNotService {
       );
 
       await _firestore.collection('matches').doc(matchId).set(match.toMap());
+      
+      // Send match notifications to both users
+      try {
+        await NotificationService().sendMatchNotification(
+          userId1: user1Id,
+          userId2: user2Id,
+          user2Name: user2.name ?? 'User',
+          user2Image: user2.avatarUrl ?? '',
+          matchId: matchId,
+        );
+
+        await NotificationService().sendMatchNotification(
+          userId1: user2Id,
+          userId2: user1Id,
+          user2Name: user1.name ?? 'User',
+          user2Image: user1.avatarUrl ?? '',
+          matchId: matchId,
+        );
+      } catch (e) {
+        print('Error sending match notifications from HotNotService: $e');
+      }
       
     } catch (e) {
       throw Exception('Failed to create match with chat: $e');
