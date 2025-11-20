@@ -30,7 +30,7 @@ class FCMService {
         if (change.type == DocumentChangeType.added &&
             !change.doc.metadata.hasPendingWrites) {
           final data =
-              change.doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+              change.doc.data() ?? <String, dynamic>{};
           final title = (data['title'] as String?) ?? 'Notification';
           final body = (data['body'] as String?) ?? '';
           _showSimpleLocalNotification(title, body);
@@ -231,7 +231,7 @@ class FCMService {
       // Get user's FCM token
       final userDoc = await _firestore.collection('users').doc(userId).get();
       final userData =
-          userDoc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+          userDoc.data() ?? <String, dynamic>{};
       final fcmToken = userData['fcmToken'] as String?;
 
       if (fcmToken != null) {

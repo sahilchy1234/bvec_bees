@@ -1,32 +1,70 @@
+const functions = require("firebase-functions");
+const admin = require("firebase-admin");
+
+admin.initializeApp();
+
 /**
- * Import function triggers from their respective submodules:
+ * Sends an FCM push when a notification document is created.
  *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
+ * Path: users/{userId}/notifications/{notificationId}
+ * Matches the document written by FCMService.sendNotification
+ * in the Flutter app.
  */
+exports.sendNotificationOnCreate = functions.firestore
+    .document("users/{userId}/notifications/{notificationId}")
+    .onCreate(async (snap, context) => {
+      const notification = snap.data();
+      const userId = context.params.userId;
 
-const {setGlobalOptions} = require("firebase-functions");
-const {onRequest} = require("firebase-functions/https");
-const logger = require("firebase-functions/logger");
+      try {
+        // Get user's FCM token
+        const userDoc = await admin
+            .firestore()
+            .collection("users")
+            .doc(userId)
+            .get();
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+        const userData = userDoc.data() || {};
+        const fcmToken = userData.fcmToken;
 
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
+        if (!fcmToken) {
+          console.log(`No FCM token for user ${userId}`);
+          return null;
+        }
 
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+        const title = notification.title || "Notification";
+        const body = notification.body || "";
+        const type = notification.type || "generic";
+        const extraData = notification.data || {};
+
+        const message = {
+          notification: {
+            title,
+            body,
+          },
+          data: {
+            type,
+            ...extraData,
+          },
+          token: fcmToken,
+        };
+
+        const response = await admin.messaging().send(message);
+        console.log("Successfully sent message", response);
+
+        await snap.ref.update({
+          sentAt: admin.firestore.FieldValue.serverTimestamp(),
+          sentStatus: "success",
+        });
+
+        return null;
+      } catch (error) {
+        console.error("Error sending notification", error);
+        await snap.ref.update({
+          sentStatus: "failed",
+          error: error.message,
+        });
+
+        return null;
+      }
+    });

@@ -1,1 +1,40 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"edunova-fa954","appId":"1:508194876863:android:e0350ad5321da0de4c850a","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"edunova-fa954","configurations":{"android":"1:508194876863:android:e0350ad5321da0de4c850a","ios":"1:508194876863:ios:3ffd282b46e102fc4c850a","web":"1:508194876863:web:8fe747255da2d77d4c850a"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "edunova-fa954",
+          "appId": "1:508194876863:android:e0350ad5321da0de4c850a",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "edunova-fa954",
+          "configurations": {
+            "android": "1:508194876863:android:e0350ad5321da0de4c850a",
+            "ios": "1:508194876863:ios:3ffd282b46e102fc4c850a",
+            "web": "1:508194876863:web:8fe747255da2d77d4c850a"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "disallowLegacyRuntimeConfig": true,
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint"
+      ]
+    }
+  ]
+}

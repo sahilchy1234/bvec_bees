@@ -65,7 +65,7 @@ class NotificationService {
       final recipientDoc =
           await _firestore.collection('users').doc(recipientId).get();
       final recipientData =
-          recipientDoc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+          recipientDoc.data() ?? <String, dynamic>{};
       final chatNotificationsEnabled =
           (recipientData['chatNotificationsEnabled'] as bool?) ?? true;
 
@@ -107,7 +107,7 @@ class NotificationService {
       final ownerDoc =
           await _firestore.collection('users').doc(postOwnerId).get();
       final ownerData =
-          ownerDoc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+          ownerDoc.data() ?? <String, dynamic>{};
       final likeNotificationsEnabled =
           (ownerData['likeNotificationsEnabled'] as bool?) ?? true;
 
@@ -152,8 +152,7 @@ class NotificationService {
       // Check if tagged user has notifications enabled
       final taggedUserDoc =
           await _firestore.collection('users').doc(taggedUserId).get();
-      final taggedUserData = taggedUserDoc.data()
-              as Map<String, dynamic>? ??
+      final taggedUserData = taggedUserDoc.data() ??
           <String, dynamic>{};
       final tagNotificationsEnabled =
           (taggedUserData['tagNotificationsEnabled'] as bool?) ?? true;
@@ -199,7 +198,7 @@ class NotificationService {
       final ownerDoc =
           await _firestore.collection('users').doc(postOwnerId).get();
       final ownerData =
-          ownerDoc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+          ownerDoc.data() ?? <String, dynamic>{};
       final commentNotificationsEnabled =
           (ownerData['commentNotificationsEnabled'] as bool?) ?? true;
 
@@ -242,7 +241,7 @@ class NotificationService {
       // Check if user has notifications enabled for matches
       final userDoc = await _firestore.collection('users').doc(userId1).get();
       final userData =
-          userDoc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+          userDoc.data() ?? <String, dynamic>{};
       final matchNotificationsEnabled =
           (userData['matchNotificationsEnabled'] as bool?) ?? true;
 
