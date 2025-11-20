@@ -232,7 +232,7 @@ class FCMService {
 
       // Call Vercel backend to send FCM (works in background / app killed)
       final uri = Uri.parse(
-        'https://bvecbees-fddeezr2s-sahils-projects-deff163e.vercel.app/api/sendNotification',
+        'https://bvecbees-5bwzjjm9s-sahils-projects-deff163e.vercel.app/api/sendNotification',
       );
 
       try {

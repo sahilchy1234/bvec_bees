@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
+import '../services/engagement_service.dart';
 import '../models/user_model.dart';
 import 'feed_page.dart';
 import 'profile_page.dart';
@@ -35,6 +37,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   
   final AuthService _authService = AuthService();
   late Future<UserModel?> _userFuture;
+  final EngagementService _engagementService = EngagementService();
+  Timer? _engagementTimer;
 
   Widget _pageFor(int index) {
     switch (index) {
@@ -92,6 +96,27 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
+  void _startEngagementScheduler() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString('current_user_uid');
+
+      if (uid == null || uid.isEmpty) {
+        return;
+      }
+
+      _engagementTimer?.cancel();
+      _engagementTimer = Timer.periodic(
+        const Duration(hours: 4),
+        (_) {
+          _engagementService.sendEngagementNotification(uid);
+        },
+      );
+    } catch (e) {
+      print('Error starting engagement scheduler: $e');
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -115,6 +140,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     
     // Start with app bar visible
     _appBarAnimationController.value = 1.0;
+
+    _startEngagementScheduler();
   }
 
   @override
@@ -122,6 +149,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _appBarAnimationController.dispose();
+    _engagementTimer?.cancel();
     super.dispose();
   }
 
