@@ -1,6 +1,8 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
 
@@ -228,16 +230,25 @@ class FCMService {
         'data': data,
       });
 
-      // Get user's FCM token
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      final userData =
-          userDoc.data() ?? <String, dynamic>{};
-      final fcmToken = userData['fcmToken'] as String?;
+      // Call Vercel backend to send FCM (works in background / app killed)
+      final uri = Uri.parse(
+        'https://bvecbees-fddeezr2s-sahils-projects-deff163e.vercel.app/api/sendNotification',
+      );
 
-      if (fcmToken != null) {
-        // Send via FCM (requires backend implementation)
-        // This is a placeholder - actual sending should be done via Cloud Functions
-        print('Would send FCM to token: $fcmToken');
+      try {
+        await http.post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'userId': userId,
+            'title': title,
+            'body': body,
+            'type': type,
+            'data': data ?? <String, dynamic>{},
+          }),
+        );
+      } catch (e) {
+        print('Error calling Vercel notification endpoint: $e');
       }
     } catch (e) {
       print('Error sending notification: $e');
