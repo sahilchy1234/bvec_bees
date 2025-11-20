@@ -170,157 +170,6 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
           Expanded(
             child: CustomScrollView(
               slivers: [
-                // Original Rumor Card
-                SliverToBoxAdapter(
-                  child: Container(
-                    margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFF1A1A1A),
-                          const Color(0xFF151515),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.amber.withOpacity(0.2),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.amber.withOpacity(0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.amber.shade300,
-                                      Colors.orange.shade400,
-                                    ],
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: FaIcon(
-                                    FontAwesomeIcons.userSecret,
-                                    color: Colors.white,
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Anonymous',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 15,
-                                        letterSpacing: -0.3,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.access_time_rounded,
-                                          color: Colors.grey[500],
-                                          size: 12,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          _formatTime(widget.rumor.timestamp),
-                                          style: TextStyle(
-                                            color: Colors.grey[500],
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            widget.rumor.content,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              height: 1.5,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          margin: const EdgeInsets.all(12),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.03),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.05),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _StatItem(
-                                icon: FontAwesomeIcons.thumbsUp,
-                                label: widget.rumor.yesVotes.toString(),
-                                color: Colors.green.shade400,
-                              ),
-                              Container(
-                                width: 1,
-                                height: 20,
-                                color: Colors.white.withOpacity(0.1),
-                              ),
-                              _StatItem(
-                                icon: FontAwesomeIcons.thumbsDown,
-                                label: widget.rumor.noVotes.toString(),
-                                color: Colors.red.shade400,
-                              ),
-                              Container(
-                                width: 1,
-                                height: 20,
-                                color: Colors.white.withOpacity(0.1),
-                              ),
-                              _StatItem(
-                                icon: FontAwesomeIcons.comment,
-                                label: widget.rumor.commentCount.toString(),
-                                color: Colors.blue.shade400,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                
                 // Comments Header
                 SliverToBoxAdapter(
                   child: Padding(
@@ -332,9 +181,9 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
                           decoration: BoxDecoration(
                             color: Colors.amber.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.amber.withOpacity(0.3),
-                            ),
+                            // border: Border.all(
+                            //   color: Colors.amber.withOpacity(0.3),
+                            // ),
                           ),
                           child: Row(
                             children: [
@@ -490,9 +339,9 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
                             ],
                           ),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.amber.withOpacity(0.3),
-                          ),
+                          // border: Border.all(
+                          //   color: Colors.amber.withOpacity(0.3),
+                          // ),
                         ),
                         child: Row(
                           children: [
@@ -563,9 +412,9 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
                             decoration: BoxDecoration(
                               color: const Color(0xFF1A1A1A),
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.1),
-                              ),
+                              // border: Border.all(
+                              //   color: Colors.white.withOpacity(0.1),
+                              // ),
                             ),
                             child: TextField(
                               controller: _commentController,
@@ -605,13 +454,13 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.amber.withOpacity(0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                              // boxShadow: [
+                              //   BoxShadow(
+                              //     color: Colors.amber.withOpacity(0.3),
+                              //     blurRadius: 12,
+                              //     offset: const Offset(0, 4),
+                              //   ),
+                              // ],
                             ),
                             child: const Icon(
                               Icons.send_rounded,
@@ -684,9 +533,9 @@ class _CommentThreadState extends State<_CommentThread> with SingleTickerProvide
       decoration: BoxDecoration(
         color: const Color(0xFF151515),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.05),
-        ),
+        // border: Border.all(
+        //   color: Colors.white.withOpacity(0.05),
+        // ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -804,11 +653,11 @@ class _CommentThreadState extends State<_CommentThread> with SingleTickerProvide
                               ? Colors.red.withOpacity(0.15)
                               : Colors.white.withOpacity(0.05),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _isLiked
-                                ? Colors.red.withOpacity(0.3)
-                                : Colors.white.withOpacity(0.1),
-                          ),
+                          // border: Border.all(
+                          //   color: _isLiked
+                          //       ? Colors.red.withOpacity(0.3)
+                          //       : Colors.white.withOpacity(0.1),
+                          // ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -853,9 +702,9 @@ class _CommentThreadState extends State<_CommentThread> with SingleTickerProvide
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.05),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
-                          ),
+                          // border: Border.all(
+                          //   color: Colors.white.withOpacity(0.1),
+                          // ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -900,9 +749,9 @@ class _CommentThreadState extends State<_CommentThread> with SingleTickerProvide
                             ],
                           ),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.amber.withOpacity(0.2),
-                          ),
+                          // border: Border.all(
+                          //   color: Colors.amber.withOpacity(0.2),
+                          // ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -1023,9 +872,9 @@ class _ReplyCommentState extends State<_ReplyComment> with SingleTickerProviderS
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.02),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.05),
-        ),
+        // border: Border.all(
+        //   color: Colors.white.withOpacity(0.05),
+        // ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1131,11 +980,11 @@ class _ReplyCommentState extends State<_ReplyComment> with SingleTickerProviderS
                     ? Colors.red.withOpacity(0.15)
                     : Colors.white.withOpacity(0.03),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _isLiked
-                      ? Colors.red.withOpacity(0.3)
-                      : Colors.white.withOpacity(0.08),
-                ),
+                // border: Border.all(
+                //   color: _isLiked
+                //       ? Colors.red.withOpacity(0.3)
+                //       : Colors.white.withOpacity(0.08),
+                // ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1168,44 +1017,6 @@ class _ReplyCommentState extends State<_ReplyComment> with SingleTickerProviderS
                   ],
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  const _StatItem({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FaIcon(
-            icon,
-            color: color,
-            size: 14,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ],

@@ -1167,7 +1167,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
       } else if (isMention) {
         // Render mention as a pill chip (yellow background) and make it clickable
         // Debug: log mention chip rendering
-        debugPrint('[PostCard] Rendering mention chip for: $matchText');
+        // debugPrint('[PostCard] Rendering mention chip for: $matchText');
         spans.add(WidgetSpan(
           alignment: PlaceholderAlignment.baseline,
           baseline: TextBaseline.alphabetic,
@@ -1175,7 +1175,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
             padding: const EdgeInsets.symmetric(horizontal: 2),
             child: InkWell(
               onTap: () async {
-                debugPrint('[PostCard] Mention tapped: $matchText');
+                // debugPrint('[PostCard] Mention tapped: $matchText');
                 final token = matchText.substring(1);
                 try {
                   // Try rollNo (stored normalized to lowercase)

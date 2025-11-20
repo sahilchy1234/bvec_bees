@@ -1,8 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.bvec.bees">
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
-        android:label="bvec_bees"
+        android:label="Beezy"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

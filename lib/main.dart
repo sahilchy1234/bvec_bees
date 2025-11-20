@@ -12,6 +12,13 @@ import 'services/fcm_service.dart';
 
 import 'firebase_options.dart';
 
+Future<void> _initializeFCMForCurrentUser() async {
+  final currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser != null) {
+    await FCMService().initialize(currentUser.uid);
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -19,12 +26,16 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
-  // Initialize FCM
-  final currentUser = FirebaseAuth.instance.currentUser;
-  if (currentUser != null) {
-    await FCMService().initialize(currentUser.uid);
-  }
+
+  // Initialize FCM for any already signed-in user
+  await _initializeFCMForCurrentUser();
+
+  // Keep FCM in sync with auth state changes
+  FirebaseAuth.instance.authStateChanges().listen((user) {
+    if (user != null) {
+      FCMService().initialize(user.uid);
+    }
+  });
   
   // Initialize Performance Monitoring
   // FirebasePerformance performance = FirebasePerformance.instance;
@@ -36,8 +47,17 @@ void main() async {
   });
   final prefs = await SharedPreferences.getInstance();
   final pending = prefs.getBool('pending_verification') ?? false;
-  final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;  
-  runApp(MyApp(startPending: pending, isLoggedIn: isLoggedIn));  
+  final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+
+  // Initialize FCM using custom auth user id from SharedPreferences
+  if (isLoggedIn) {
+    final storedUid = prefs.getString('current_user_uid');
+    if (storedUid != null && storedUid.isNotEmpty) {
+      await FCMService().initialize(storedUid);
+    }
+  }
+
+  runApp(MyApp(startPending: pending, isLoggedIn: isLoggedIn));
 
 }
 

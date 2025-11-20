@@ -171,12 +171,8 @@ class _RumorCardState extends State<RumorCard> {
 
   @override
   Widget build(BuildContext context) {
-    final totalVotes = _yesVotesLocal + _noVotesLocal;
-    final yesPercentage = totalVotes > 0 ? (_yesVotesLocal / totalVotes * 100) : 0.0;
-    final noPercentage = 100 - yesPercentage;
-
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -187,12 +183,12 @@ class _RumorCardState extends State<RumorCard> {
           ],
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _isControversialLocal()
-              ? Colors.amber.withOpacity(0.6)
-              : Colors.amber.withOpacity(0.2),
-          width: 1.5,
-        ),
+        // border: Border.all(
+        //   color: _isControversialLocal()
+        //       ? Colors.amber.withOpacity(0.6)
+        //       : Colors.amber.withOpacity(0.2),
+        //   width: 1.5,
+        // ),
         boxShadow: [
           BoxShadow(
             color: _isControversialLocal()
@@ -225,10 +221,7 @@ class _RumorCardState extends State<RumorCard> {
                             Colors.yellow.withOpacity(0.2),
                           ],
                         ),
-                        border: Border.all(
-                          color: Colors.amber.withOpacity(0.5),
-                          width: 1,
-                        ),
+                      
                       ),
                       child: const Center(
                         child: FaIcon(
@@ -261,47 +254,71 @@ class _RumorCardState extends State<RumorCard> {
                     ),
                   ],
                 ),
-                if (_isControversialLocal())
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.amber, width: 1),
-                    ),
-                    child: const Row(
-                      children: [
-                        FaIcon(
-                          FontAwesomeIcons.fire,
-                          color: Colors.amber,
-                          size: 9,
+                Row(
+                  children: [
+                    if (_isControversialLocal())
+                      Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                        //  color: Colors.amber.withOpacity(0.2),
+                      //    borderRadius: BorderRadius.circular(6),
+                      //    border: Border.all(color: Colors.amber, width: 1),
                         ),
-                        SizedBox(width: 4),
-                        Text(
-                          'SPICY',
-                          style: TextStyle(
-                            color: Colors.amber,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: const Row(
+                          children: [
+                            FaIcon(
+                              FontAwesomeIcons.fire,
+                              color: Colors.amber,
+                              size: 9,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'SPICY',
+                              style: TextStyle(
+                                color: Colors.amber,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
+                    IconButton(
+                      icon: const FaIcon(
+                        FontAwesomeIcons.share,
+                        color: Colors.amber,
+                        size: 16,
+                      ),
+                      onPressed: widget.onShare,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
-                  ),
+                  ],
+                ),
               ],
             ),
           ),
-          // Content
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(
-              widget.rumor.content,
-              style: GoogleFonts.caveat(
-                color: Colors.white,
-                fontSize: 25,
-                height: 1.5,
-                fontWeight: FontWeight.w500,
+          // Content Card
+          Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              width: 500,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[900]?.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+               
+              ),
+              child: Text(
+                widget.rumor.content,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.caveat(
+                  color: Colors.white,
+                  fontSize: 25,
+                  height: 1.5,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),
@@ -364,69 +381,13 @@ class _RumorCardState extends State<RumorCard> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          // Vote Statistics
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Yes: $_yesVotesLocal',
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      _AnimatedProgressBar(
-                        value: (yesPercentage / 100).clamp(0.0, 1.0),
-                        color: Colors.green,
-                        backgroundColor: Colors.grey[800]!,
-                        height: 6,
-                        duration: const Duration(milliseconds: 300),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'No: $_noVotesLocal',
-                        style: const TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      _AnimatedProgressBar(
-                        value: (noPercentage / 100).clamp(0.0, 1.0),
-                        color: Colors.red,
-                        backgroundColor: Colors.grey[800]!,
-                        height: 6,
-                        duration: const Duration(milliseconds: 300),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
           // Vote Buttons
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
                 Expanded(
+                  flex: 3,
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -464,22 +425,22 @@ class _RumorCardState extends State<RumorCard> {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 160),
                           curve: Curves.easeOut,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                           decoration: BoxDecoration(
                             color: _userVotedYes
-                                ? Colors.green
+                                ? Colors.amber
                                 : Colors.grey[850],
                             borderRadius: BorderRadius.circular(999),
                             border: _userVotedYes
                                 ? null
                                 : Border.all(
-                                    color: Colors.amber.withOpacity(0.6),
+                                  //  color: Colors.amber.withOpacity(0.6),
                                     width: 1.5,
                                   ),
                             boxShadow: _userVotedYes
                                 ? [
                                     BoxShadow(
-                                      color: Colors.green.withOpacity(0.25),
+                                    //  color: Colors.green.withOpacity(0.25),
                                       blurRadius: 10,
                                       spreadRadius: 0,
                                     ),
@@ -491,16 +452,16 @@ class _RumorCardState extends State<RumorCard> {
                             children: [
                               FaIcon(
                                 FontAwesomeIcons.thumbsUp,
-                                color: _userVotedYes ? Colors.white : Colors.amber,
-                                size: 14,
+                                color: _userVotedYes ? Colors.black : Colors.amber,
+                                size: 16,
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Text(
-                                'True',
+                                'True ($_yesVotesLocal)',
                                 style: TextStyle(
-                                  color: _userVotedYes ? Colors.white : Colors.amber,
+                                  color: _userVotedYes ? Colors.black : Colors.amber,
                                   fontWeight: FontWeight.w700,
-                                  fontSize: 13,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -510,8 +471,9 @@ class _RumorCardState extends State<RumorCard> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
+                  flex: 3,
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -549,22 +511,22 @@ class _RumorCardState extends State<RumorCard> {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 160),
                           curve: Curves.easeOut,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                           decoration: BoxDecoration(
                             color: _userVotedNo
-                                ? Colors.red
+                                ? Colors.amber
                                 : Colors.grey[850],
                             borderRadius: BorderRadius.circular(999),
                             border: _userVotedNo
                                 ? null
                                 : Border.all(
-                                    color: Colors.amber.withOpacity(0.6),
+                                    //color: Colors.amber.withOpacity(0.6),
                                     width: 1.5,
                                   ),
                             boxShadow: _userVotedNo
                                 ? [
                                     BoxShadow(
-                                      color: Colors.red.withOpacity(0.25),
+                                      // color: const Color.fromARGB(255, 145, 145, 0).withOpacity(0.25),
                                       blurRadius: 10,
                                       spreadRadius: 0,
                                     ),
@@ -576,16 +538,16 @@ class _RumorCardState extends State<RumorCard> {
                             children: [
                               FaIcon(
                                 FontAwesomeIcons.thumbsDown,
-                                color: _userVotedNo ? Colors.white : Colors.amber,
-                                size: 14,
+                                color: _userVotedNo ? Colors.black : Colors.amber,
+                                size: 16,
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Text(
-                                'False',
+                                'False ($_noVotesLocal)',
                                 style: TextStyle(
-                                  color: _userVotedNo ? Colors.white : Colors.amber,
+                                  color: _userVotedNo ? Colors.black : Colors.amber,
                                   fontWeight: FontWeight.w700,
-                                  fontSize: 13,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -595,25 +557,20 @@ class _RumorCardState extends State<RumorCard> {
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Action Buttons
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _ActionButton(
-                  icon: FontAwesomeIcons.comment,
-                  label: '${widget.rumor.commentCount}',
-                  onTap: widget.onComment,
-                ),
-                _ActionButton(
-                  icon: FontAwesomeIcons.share,
-                  label: 'Share',
-                  onTap: widget.onShare,
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: IconButton(
+                    icon: const FaIcon(
+                      FontAwesomeIcons.comment,
+                      color: Colors.amber,
+                      size: 20,
+                    ),
+                    onPressed: widget.onComment,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                 ),
               ],
             ),
@@ -625,57 +582,3 @@ class _RumorCardState extends State<RumorCard> {
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.amber.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: Colors.amber.withOpacity(0.4),
-              width: 1.5,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FaIcon(
-                icon,
-                color: Colors.amber,
-                size: 14,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.amber,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

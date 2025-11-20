@@ -361,258 +361,201 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: RefreshIndicator(
-        onRefresh: _refreshRumors,
-        color: Colors.amber,
-        child: _isLoading
-            ? ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 200),
-                  Center(
-                    child: CircularProgressIndicator(color: Colors.amber),
-                  ),
-                ],
-              )
-            : (_rumors.isEmpty && !_isLoadingMore)
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: [
-                      const SizedBox(height: 60),
-                      Center(
-                        child: Column(
+      body: Column(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              alignment: Alignment.center,
+              child: const Text(
+                'Rumors',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refreshRumors,
+              color: Colors.amber,
+              child: _isLoading
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 200),
+                        Center(
+                          child: CircularProgressIndicator(color: Colors.amber),
+                        ),
+                      ],
+                    )
+                  : (_rumors.isEmpty && !_isLoadingMore)
+                      ? ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: Colors.amber.withOpacity(0.1),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const FaIcon(
-                                FontAwesomeIcons.userSecret,
-                                color: Colors.amber,
-                                size: 32,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            const Text(
-                              'No rumors yet',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Be the first to spill the tea! 🔥',
-                              style: TextStyle(
-                                color: Colors.grey[400],
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 32),
-                            ElevatedButton(
-                              onPressed: _showCreateRumorDialog,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.amber,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 32,
-                                  vertical: 12,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
+                            const SizedBox(height: 60),
+                            Center(
+                              child: Column(
                                 children: [
-                                  FaIcon(
-                                    FontAwesomeIcons.fire,
-                                    color: Colors.black,
-                                    size: 16,
+                                  Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const FaIcon(
+                                      FontAwesomeIcons.userSecret,
+                                      color: Colors.amber,
+                                      size: 32,
+                                    ),
                                   ),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Create Rumor',
+                                  const SizedBox(height: 20),
+                                  const Text(
+                                    'No rumors yet',
                                     style: TextStyle(
-                                      color: Colors.black,
+                                      color: Colors.white,
+                                      fontSize: 18,
                                       fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Be the first to spill the tea! 🔥',
+                                    style: TextStyle(
+                                      color: Colors.grey[400],
                                       fontSize: 14,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 32),
+                                  ElevatedButton(
+                                    onPressed: _showCreateRumorDialog,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.amber,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 32,
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        FaIcon(
+                                          FontAwesomeIcons.fire,
+                                          color: Colors.black,
+                                          size: 16,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Create Rumor',
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView.builder(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.only(bottom: 100, top: 12),
-                    itemCount: _rumors.length + 2, // +1 for create button, +1 for loader
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          child: GestureDetector(
-                            onTap: _showCreateRumorDialog,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 14,
-                              ),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.amber.withOpacity(0.15),
-                                    Colors.yellow.withOpacity(0.08),
-                                  ],
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.only(bottom: 100, top: 12),
+                          itemCount: _rumors.length + 1, // +1 for loader
+                          itemBuilder: (context, index) {
+                            if (index == _rumors.length && _hasMore) {
+                              return Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Center(
+                                  child: _isLoadingMore
+                                      ? const CircularProgressIndicator(color: Colors.amber)
+                                      : const SizedBox.shrink(),
                                 ),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: Colors.amber.withOpacity(0.4),
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.amber.withOpacity(0.1),
-                                    blurRadius: 8,
-                                    spreadRadius: 0,
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const FaIcon(
-                                      FontAwesomeIcons.userSecret,
-                                      color: Colors.amber,
-                                      size: 18,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Spill the Tea ☕',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Share your rumor anonymously',
-                                          style: TextStyle(
-                                            color: Colors.grey[400],
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const FaIcon(
-                                    FontAwesomeIcons.chevronRight,
-                                    color: Colors.amber,
-                                    size: 16,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      
-                      if (index == _rumors.length + 1 && _hasMore) {
-                        return Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Center(
-                            child: _isLoadingMore
-                                ? const CircularProgressIndicator(color: Colors.amber)
-                                : const SizedBox.shrink(),
-                          ),
-                        );
-                      }
-                      
-                      if (index > _rumors.length) {
-                        return const SizedBox.shrink();
-                      }
+                              );
+                            }
 
-                      final rumor = _rumors[index - 1];
-                      return RumorCard(
-                        key: ValueKey(rumor.id),
-                        rumor: rumor,
-                        currentUserId: _currentUserId,
-                        onVoteYes: () async {
-                          try {
-                            await _rumorService.voteOnRumor(
-                              rumor.id,
-                              _currentUserId,
-                              true,
-                            );
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $e')),
-                              );
+                            if (index >= _rumors.length) {
+                              return const SizedBox.shrink();
                             }
-                          }
-                        },
-                        onVoteNo: () async {
-                          try {
-                            await _rumorService.voteOnRumor(
-                              rumor.id,
-                              _currentUserId,
-                              false,
+
+                            final rumor = _rumors[index];
+                            return RumorCard(
+                              key: ValueKey(rumor.id),
+                              rumor: rumor,
+                              currentUserId: _currentUserId,
+                              onVoteYes: () async {
+                                try {
+                                  await _rumorService.voteOnRumor(
+                                    rumor.id,
+                                    _currentUserId,
+                                    true,
+                                  );
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error: $e')),
+                                    );
+                                  }
+                                }
+                              },
+                              onVoteNo: () async {
+                                try {
+                                  await _rumorService.voteOnRumor(
+                                    rumor.id,
+                                    _currentUserId,
+                                    false,
+                                  );
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error: $e')),
+                                    );
+                                  }
+                                }
+                              },
+                              onComment: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => RumorDiscussionPage(rumor: rumor),
+                                  ),
+                                );
+                              },
+                              onShare: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Rumor link copied to clipboard!'),
+                                  ),
+                                );
+                              },
                             );
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: $e')),
-                              );
-                            }
-                          }
-                        },
-                        onComment: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => RumorDiscussionPage(rumor: rumor),
-                            ),
-                          );
-                        },
-                        onShare: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Rumor link copied to clipboard!'),
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
+                          },
+                        ),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateRumorDialog,
         backgroundColor: Colors.amber,
         elevation: 8,
         child: const FaIcon(
-          FontAwesomeIcons.fire,
-          color: Colors.black,
-          size: 20,
+          FontAwesomeIcons.pen,
+          color: Colors.white,
+          size: 24,
         ),
       ),
     );

@@ -20,13 +20,19 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   late ScrollController _scrollController;
-  bool _showAppBar = true;
-  double _lastOffset = 0.0;
-  double _accumulatedDelta = 0.0;
-  static const double _toggleThreshold = 24.0; // pixels
+  late AnimationController _appBarAnimationController;
+  late Animation<double> _appBarAnimation;
+  
+  double _lastScrollOffset = 0.0;
+  bool _isAppBarVisible = true;
+  
+  static const double _appBarHeight = 70;
+  static const double _appBarExtraGap = 25;
+  static const double _scrollThreshold = 5.0; // Reduced threshold for faster response
+  
   final AuthService _authService = AuthService();
   late Future<UserModel?> _userFuture;
 
@@ -92,12 +98,30 @@ class _HomePageState extends State<HomePage> {
     _scrollController = ScrollController();
     _scrollController.addListener(_onScroll);
     _userFuture = _loadCurrentUser();
+    
+    // Initialize animation controller for smooth transitions
+    _appBarAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200), // Fast like Instagram
+    );
+    
+    _appBarAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _appBarAnimationController,
+      curve: Curves.easeInOut,
+    ));
+    
+    // Start with app bar visible
+    _appBarAnimationController.value = 1.0;
   }
 
   @override
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _appBarAnimationController.dispose();
     super.dispose();
   }
 
@@ -120,7 +144,6 @@ class _HomePageState extends State<HomePage> {
       }
 
       print('No profile found in Firestore, using cached data');
-      // Fallback to cached data from SharedPreferences
       return UserModel(
         uid: uid,
         email: prefs.getString('current_user_email') ?? '',
@@ -142,32 +165,54 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onScroll() {
-    final current = _scrollController.position.pixels;
-    final delta = current - _lastOffset;
-
-    // Accumulate scroll delta with direction. Positive = scrolling down, Negative = up
-    if (delta > 0) {
-      _accumulatedDelta = (_accumulatedDelta + delta).clamp(-_toggleThreshold, 4 * _toggleThreshold);
-      if (_accumulatedDelta > _toggleThreshold && _showAppBar) {
-        setState(() {
-          _showAppBar = false;
-          _accumulatedDelta = 0;
-        });
+    if (!_scrollController.hasClients) return;
+    
+    final currentOffset = _scrollController.offset;
+    final difference = currentOffset - _lastScrollOffset;
+    
+    // Show app bar when at the top
+    if (currentOffset <= 0) {
+      if (!_isAppBarVisible) {
+        _showAppBar();
       }
-    } else if (delta < 0) {
-      _accumulatedDelta = (_accumulatedDelta + delta).clamp(-4 * _toggleThreshold, _toggleThreshold);
-      if (_accumulatedDelta < -_toggleThreshold && !_showAppBar) {
-        setState(() {
-          _showAppBar = true;
-          _accumulatedDelta = 0;
-        });
-      }
+      _lastScrollOffset = currentOffset;
+      return;
     }
+    
+    // Only trigger on meaningful scroll
+    if (difference.abs() < _scrollThreshold) {
+      return;
+    }
+    
+    // Scrolling down - hide app bar
+    if (difference > 0 && _isAppBarVisible) {
+      _hideAppBar();
+    }
+    // Scrolling up - show app bar
+    else if (difference < 0 && !_isAppBarVisible) {
+      _showAppBar();
+    }
+    
+    _lastScrollOffset = currentOffset;
+  }
 
-    _lastOffset = current;
+  void _showAppBar() {
+    _isAppBarVisible = true;
+    _appBarAnimationController.forward();
+  }
+
+  void _hideAppBar() {
+    _isAppBarVisible = false;
+    _appBarAnimationController.reverse();
   }
 
   void _onItemTapped(int index) {
+    // Reset scroll position and show app bar when changing tabs
+    if (_selectedIndex != index) {
+      _lastScrollOffset = 0.0;
+      _showAppBar();
+    }
+    
     setState(() {
       _selectedIndex = index;
     });
@@ -175,129 +220,134 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final bool showGlobalAppBar = _selectedIndex != 2;
-    const double appBarGap = 25;
-    final double topPadding = showGlobalAppBar ? (70 + appBarGap) : 0;
+    final bool showGlobalAppBar = _selectedIndex == 0;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color.fromARGB(255, 14, 14, 14),
       appBar: null,
       body: Stack(
         children: [
-          // Content underneath
+          // Content underneath with animated padding
           SafeArea(
             top: false,
-            child: Padding(
-              padding: EdgeInsets.only(top: topPadding),
-              child: _pageFor(_selectedIndex),
+            child: AnimatedBuilder(
+              animation: _appBarAnimation,
+              builder: (context, child) {
+                final topPadding = showGlobalAppBar 
+                    ? (_appBarHeight + _appBarExtraGap) * _appBarAnimation.value 
+                    : 0.0;
+                
+                return Padding(
+                  padding: EdgeInsets.only(top: topPadding),
+                  child: _pageFor(_selectedIndex),
+                );
+              },
             ),
           ),
           // Animated top bar overlay
           if (showGlobalAppBar)
             SafeArea(
               bottom: false,
-              child: AnimatedSlide(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                offset: _showAppBar ? const Offset(0, 0) : const Offset(0, -1),
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOut,
-                  opacity: _showAppBar ? 1 : 0,
-                  child: Container(
-                    height: 70,
-                    color: const Color.fromARGB(255, 14, 14, 14),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8),
-                          child: Text(
-                            'Beezy',
-                            style: GoogleFonts.dancingScript(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                        Row(
+              child: AnimatedBuilder(
+                animation: _appBarAnimation,
+                builder: (context, child) {
+                  return Transform.translate(
+                    offset: Offset(0, -_appBarHeight * (1 - _appBarAnimation.value)),
+                    child: Opacity(
+                      opacity: _appBarAnimation.value,
+                      child: Container(
+                        height: _appBarHeight,
+                        color: const Color.fromARGB(255, 14, 14, 14),
+                        padding: const EdgeInsets.only(left: 8, bottom: 30),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.search, size: 25),
-                              color: Colors.white,
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const SearchPage(),
-                                  ),
-                                );
-                              },
-                              tooltip: 'Search',
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                'Beezy',
+                                style: GoogleFonts.dancingScript(
+                                  color: Colors.white,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
                             ),
-                            IconButton(
-                              icon: const FaIcon(FontAwesomeIcons.heart, size: 18),
-                              color: Colors.white,
-                              onPressed: () async {
-                                final prefs =
-                                    await SharedPreferences.getInstance();
-                                final currentUserId =
-                                    prefs.getString('current_user_uid') ?? '';
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.search, size: 25),
+                                  color: Colors.white,
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const SearchPage(),
+                                      ),
+                                    );
+                                  },
+                                  tooltip: 'Search',
+                                ),
+                                IconButton(
+                                  icon: const FaIcon(FontAwesomeIcons.heart, size: 18),
+                                  color: Colors.white,
+                                  onPressed: () async {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final currentUserId = prefs.getString('current_user_uid') ?? '';
 
-                                if (currentUserId.isEmpty) return;
+                                    if (currentUserId.isEmpty) return;
 
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => NotificationsPage(
-                                      currentUserId: currentUserId,
-                                    ),
-                                  ),
-                                );
-                              },
-                              tooltip: 'Activity',
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => NotificationsPage(
+                                          currentUserId: currentUserId,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  tooltip: 'Activity',
+                                ),
+                                IconButton(
+                                  icon: const FaIcon(FontAwesomeIcons.comment, size: 18),
+                                  color: Colors.white,
+                                  onPressed: () async {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final currentUserId = prefs.getString('current_user_uid') ?? '';
+                                    final currentUserName = prefs.getString('current_user_name') ?? 'User';
+                                    final currentUserImage = prefs.getString('current_user_avatar') ?? '';
+
+                                    if (currentUserId.isEmpty) return;
+
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ConversationsPage(
+                                          currentUserId: currentUserId,
+                                          currentUserName: currentUserName,
+                                          currentUserImage: currentUserImage,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  tooltip: 'Messages',
+                                ),
+                                const SizedBox(width: 4),
+                              ],
                             ),
-                            IconButton(
-                              icon: const FaIcon(FontAwesomeIcons.comment, size: 18),
-                              color: Colors.white,
-                              onPressed: () async {
-                                final prefs = await SharedPreferences.getInstance();
-                                final currentUserId = prefs.getString('current_user_uid') ?? '';
-                                final currentUserName = prefs.getString('current_user_name') ?? 'User';
-                                final currentUserImage = prefs.getString('current_user_avatar') ?? '';
-
-                                if (currentUserId.isEmpty) return;
-
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ConversationsPage(
-                                      currentUserId: currentUserId,
-                                      currentUserName: currentUserName,
-                                      currentUserImage: currentUserImage,
-                                    ),
-                                  ),
-                                );
-                              },
-                              tooltip: 'Messages',
-                            ),
-                            
-                            const SizedBox(width: 4),
                           ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
         ],
       ),
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.only(bottom: 0, left: 0, right: 0), // Padding outside nav bar
+        padding: const EdgeInsets.only(bottom: 0, left: 0, right: 0),
         child: ClipRRect(
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(20),
@@ -307,7 +357,7 @@ class _HomePageState extends State<HomePage> {
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.03), // Transparent glass effect
+                color: Colors.white.withOpacity(0.03),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(20),
                   topRight: Radius.circular(20),
