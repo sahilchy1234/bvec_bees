@@ -360,7 +360,7 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color.fromARGB(255, 10, 10, 10),
       body: Column(
         children: [
           SafeArea(
@@ -369,6 +369,8 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 18),
               alignment: Alignment.center,
+                  color: const Color.fromARGB(255, 14, 14, 14), // header background color
+
               child: const Text(
                 'Rumors',
                 style: TextStyle(
@@ -550,7 +552,12 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateRumorDialog,
-        backgroundColor: Colors.amber,
+        shape: const RoundedRectangleBorder(
+          side: BorderSide(color: Color.fromARGB(255, 255, 213, 0)),
+            borderRadius: BorderRadius.all(Radius.circular(16)),
+
+        ),
+        backgroundColor: const Color.fromARGB(255, 0, 0, 0),
         elevation: 8,
         child: const FaIcon(
           FontAwesomeIcons.pen,

@@ -287,7 +287,7 @@ class _RumorCardState extends State<RumorCard> {
                     IconButton(
                       icon: const FaIcon(
                         FontAwesomeIcons.share,
-                        color: Colors.amber,
+                        color: Color.fromARGB(255, 255, 255, 255),
                         size: 16,
                       ),
                       onPressed: widget.onShare,
@@ -456,13 +456,32 @@ class _RumorCardState extends State<RumorCard> {
                                 size: 16,
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                'True ($_yesVotesLocal)',
-                                style: TextStyle(
-                                  color: _userVotedYes ? Colors.black : Colors.amber,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'True',
+                                    style: TextStyle(
+                                      color: _userVotedYes ? Colors.black : Colors.amber,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                                    width: 1,
+                                    height: 16,
+                                    color: _userVotedYes ? Colors.black : Colors.amber,
+                                  ),
+                                  Text(
+                                    '$_yesVotesLocal',
+                                    style: TextStyle(
+                                      color: _userVotedYes ? Colors.black : Colors.amber,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -542,13 +561,32 @@ class _RumorCardState extends State<RumorCard> {
                                 size: 16,
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                'False ($_noVotesLocal)',
-                                style: TextStyle(
-                                  color: _userVotedNo ? Colors.black : Colors.amber,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'False',
+                                    style: TextStyle(
+                                      color: _userVotedNo ? Colors.black : Colors.amber,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                                    width: 1,
+                                    height: 16,
+                                    color: _userVotedNo ? Colors.black : Colors.amber,
+                                  ),
+                                  Text(
+                                    '$_noVotesLocal',
+                                    style: TextStyle(
+                                      color: _userVotedNo ? Colors.black : Colors.amber,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -564,7 +602,7 @@ class _RumorCardState extends State<RumorCard> {
                   child: IconButton(
                     icon: const FaIcon(
                       FontAwesomeIcons.comment,
-                      color: Colors.amber,
+                      color: Color.fromARGB(255, 97, 97, 97),
                       size: 20,
                     ),
                     onPressed: widget.onComment,

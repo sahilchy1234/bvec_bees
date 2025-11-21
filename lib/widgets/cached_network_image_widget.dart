@@ -10,6 +10,10 @@ class CachedNetworkImageWidget extends StatelessWidget {
   final Widget? placeholder;
   final Widget? errorWidget;
   final BorderRadius? borderRadius;
+  final bool enableZoom;
+  final double minZoom;
+  final double maxZoom;
+  final Alignment alignment;
 
   const CachedNetworkImageWidget({
     super.key,
@@ -20,28 +24,39 @@ class CachedNetworkImageWidget extends StatelessWidget {
     this.placeholder,
     this.errorWidget,
     this.borderRadius,
+    this.enableZoom = false,
+    this.minZoom = 1.0,
+    this.maxZoom = 3.0,
+    this.alignment = Alignment.center,
   });
 
   @override
   Widget build(BuildContext context) {
-    int? cacheWidth = (width?.isFinite == true && width?.isNaN == false) ? width?.toInt() : null;
-    int? cacheHeight = (height?.isFinite == true && height?.isNaN == false) ? height?.toInt() : null;
     Widget imageWidget = CachedNetworkImage(
       imageUrl: imageUrl,
       width: width,
       height: height,
       fit: fit,
+      alignment: alignment,
       placeholder: (context, url) => placeholder ?? _buildShimmerPlaceholder(),
       errorWidget: (context, url, error) => errorWidget ?? _buildErrorWidget(),
       fadeInDuration: const Duration(milliseconds: 300),
       fadeOutDuration: const Duration(milliseconds: 300),
-      memCacheWidth: cacheWidth,
-      memCacheHeight: cacheHeight,
     );
 
     if (borderRadius != null) {
       imageWidget = ClipRRect(
         borderRadius: borderRadius!,
+        child: imageWidget,
+      );
+    }
+
+    if (enableZoom) {
+      imageWidget = InteractiveViewer(
+        minScale: minZoom,
+        maxScale: maxZoom,
+        panEnabled: true,
+        boundaryMargin: const EdgeInsets.all(40),
         child: imageWidget,
       );
     }
@@ -108,8 +123,6 @@ class CachedCircleAvatar extends StatelessWidget {
           fit: BoxFit.cover,
           placeholder: (context, url) => _buildShimmerAvatar(),
           errorWidget: (context, url, error) => _buildFallbackAvatar(),
-          memCacheWidth: (radius * 2).toInt(),
-          memCacheHeight: (radius * 2).toInt(),
         ),
       ),
     );

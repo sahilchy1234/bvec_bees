@@ -100,6 +100,7 @@ class PostService {
     List<File>? imageFiles,
     required List<String> hashtags,
     required List<String> mentions,
+    double imageAlignmentY = 0.0,
   }) async {
     try {
       final postId = uuid.v4();
@@ -120,6 +121,7 @@ class PostService {
         authorImage: authorImage,
         content: content,
         imageUrls: imageUrls.isNotEmpty ? imageUrls : null,
+        imageAlignmentY: imageAlignmentY,
         hashtags: hashtags,
         mentions: mentions,
         timestamp: DateTime.now(),

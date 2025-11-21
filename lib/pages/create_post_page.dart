@@ -31,6 +31,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final PostService _postService = PostService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = false;
+  double _imageAlignmentY = 0.0;
   
   final ImagePicker _imagePicker = ImagePicker();
   
@@ -346,6 +347,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         imageFiles: _selectedImages.isNotEmpty ? _selectedImages : null,
         hashtags: hashtags,
         mentions: mentions,
+        imageAlignmentY: _imageAlignmentY,
       );
 
       if (mounted) {
@@ -480,9 +482,48 @@ class _CreatePostPageState extends State<CreatePostPage> {
               ),
             ),
             // Selected images preview
-            if (_selectedImages.isNotEmpty)
+            if (_selectedImages.isNotEmpty) ...[
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Feed preview',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onVerticalDragUpdate: (details) {
+                        setState(() {
+                          // Adjust alignment based on drag; clamp to [-1, 1]
+                          // Reverse direction: dragging down moves image the opposite way
+                          final next = _imageAlignmentY - details.delta.dy / 150;
+                          _imageAlignmentY = next.clamp(-1.0, 1.0);
+                        });
+                      },
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 300,
+                          child: Image.file(
+                            _selectedImages.first,
+                            fit: BoxFit.cover,
+                            alignment: Alignment(0, _imageAlignmentY),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -530,6 +571,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                   },
                 ),
               ),
+            ],
             const Divider(color: Colors.grey, height: 1),
             // Action buttons
             Padding(

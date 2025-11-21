@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/message_model.dart';
 import '../services/chat_service.dart';
 
@@ -35,6 +36,8 @@ class _ChatPageState extends State<ChatPage> {
   final ScrollController _scrollController = ScrollController();
   final ChatService _chatService = ChatService();
   bool _isSending = false;
+  List<Message> _cachedMessages = [];
+  bool _hasInitialScrolledToBottom = false;
 
   @override
   void initState() {
@@ -91,6 +94,14 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
+  void _jumpToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
+  }
+
   String _formatTime(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
@@ -133,8 +144,7 @@ class _ChatPageState extends State<ChatPage> {
     return CircleAvatar(
       radius: radius,
       backgroundColor: Colors.grey[900],
-      backgroundImage: NetworkImage(imageUrl),
-      onBackgroundImageError: (_, __) {},
+      backgroundImage: CachedNetworkImageProvider(imageUrl),
     );
   }
 
@@ -255,13 +265,22 @@ class _ChatPageState extends State<ChatPage> {
             child: StreamBuilder<List<Message>>(
               stream: _chatService.streamMessages(widget.conversationId),
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                final bool hasFreshData = snapshot.hasData;
+                List<Message> messages;
+                if (hasFreshData) {
+                  messages = snapshot.data!;
+                  _cachedMessages = messages;
+                } else {
+                  messages = _cachedMessages;
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting && messages.isEmpty) {
                   return const Center(
                     child: CircularProgressIndicator(color: Colors.yellow),
                   );
                 }
 
-                if (snapshot.hasError) {
+                if (snapshot.hasError && messages.isEmpty) {
                   return Center(
                     child: Text(
                       'Error loading messages',
@@ -269,8 +288,6 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                   );
                 }
-
-                final messages = snapshot.data ?? [];
 
                 if (messages.isEmpty) {
                   return LayoutBuilder(
@@ -316,9 +333,7 @@ class _ChatPageState extends State<ChatPage> {
                   );
                 }
 
-                WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-
-                return ListView.builder(
+                final listView = ListView.builder(
                   controller: _scrollController,
                   padding: EdgeInsets.only(
                     left: 16,
@@ -410,6 +425,13 @@ class _ChatPageState extends State<ChatPage> {
                     );
                   },
                 );
+
+                if (hasFreshData && !_hasInitialScrolledToBottom) {
+                  _hasInitialScrolledToBottom = true;
+                  WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToBottom());
+                }
+
+                return listView;
               },
             ),
           ),

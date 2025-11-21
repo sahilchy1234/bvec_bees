@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/conversation_model.dart';
 import '../models/match_model.dart';
 import '../services/chat_service.dart';
@@ -26,6 +27,8 @@ class ConversationsPage extends StatefulWidget {
 class _ConversationsPageState extends State<ConversationsPage> {
   final ChatService _chatService = ChatService();
   final HotNotService _hotNotService = HotNotService();
+  List<Match> _cachedMatches = [];
+  List<Conversation> _cachedConversations = [];
 
   String _formatTime(DateTime timestamp) {
     final now = DateTime.now();
@@ -69,8 +72,7 @@ class _ConversationsPageState extends State<ConversationsPage> {
     return CircleAvatar(
       radius: radius,
       backgroundColor: Colors.grey[900],
-      backgroundImage: NetworkImage(imageUrl),
-      onBackgroundImageError: (_, __) {},
+      backgroundImage: CachedNetworkImageProvider(imageUrl),
     );
   }
 
@@ -97,25 +99,45 @@ class _ConversationsPageState extends State<ConversationsPage> {
       body: StreamBuilder<List<Match>>(
         stream: _hotNotService.streamMatches(widget.currentUserId),
         builder: (context, matchSnapshot) {
-          final matchConversations = <String>{};
+          List<Match> matches;
           if (matchSnapshot.hasData) {
-            for (final match in matchSnapshot.data!) {
-              if (match.conversationId != null && match.conversationId!.isNotEmpty) {
-                matchConversations.add(match.conversationId!);
-              }
+            matches = matchSnapshot.data!;
+            _cachedMatches = matches;
+          } else {
+            matches = _cachedMatches;
+          }
+
+          if (matchSnapshot.connectionState == ConnectionState.waiting && matches.isEmpty) {
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.yellow),
+            );
+          }
+
+          final matchConversations = <String>{};
+          for (final match in matches) {
+            if (match.conversationId != null && match.conversationId!.isNotEmpty) {
+              matchConversations.add(match.conversationId!);
             }
           }
 
           return StreamBuilder<List<Conversation>>(
             stream: _chatService.streamConversations(widget.currentUserId),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              List<Conversation> conversations;
+              if (snapshot.hasData) {
+                conversations = snapshot.data!;
+                _cachedConversations = conversations;
+              } else {
+                conversations = _cachedConversations;
+              }
+
+              if (snapshot.connectionState == ConnectionState.waiting && conversations.isEmpty) {
                 return const Center(
                   child: CircularProgressIndicator(color: Colors.yellow),
                 );
               }
 
-              if (snapshot.hasError) {
+              if (snapshot.hasError && conversations.isEmpty) {
                 return Center(
                   child: Text(
                     'Error loading conversations',
@@ -124,12 +146,7 @@ class _ConversationsPageState extends State<ConversationsPage> {
                 );
               }
 
-              final conversations = snapshot.data ?? [];
-              final nonMatchConversations = conversations
-                  .where((c) => !matchConversations.contains(c.id))
-                  .toList();
-
-              if (nonMatchConversations.isEmpty) {
+              if (conversations.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -161,9 +178,9 @@ class _ConversationsPageState extends State<ConversationsPage> {
               }
 
               return ListView.builder(
-                itemCount: nonMatchConversations.length,
+                itemCount: conversations.length,
                 itemBuilder: (context, index) {
-                  final conversation = nonMatchConversations[index];
+                  final conversation = conversations[index];
                   final otherUserName =
                       conversation.getOtherParticipantName(widget.currentUserId);
                   final otherUserImage =
@@ -224,10 +241,12 @@ class _ConversationsPageState extends State<ConversationsPage> {
                       ],
                     ),
                     title: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
+                        Flexible(
                           child: Text(
                             otherUserName,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.poppins(
                               color: Colors.white,
                               fontWeight: isUnread ? FontWeight.w600 : FontWeight.w500,
@@ -235,7 +254,36 @@ class _ConversationsPageState extends State<ConversationsPage> {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 6),
                         // match label hidden here
+                        if (isMatchChat)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.pinkAccent.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.pinkAccent.withOpacity(0.6)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.local_fire_department,
+                                  color: Colors.pinkAccent,
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Match',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.pinkAccent,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                     subtitle: Text(

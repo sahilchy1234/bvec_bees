@@ -4,9 +4,13 @@ import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/auth_service.dart';
 import '../services/engagement_service.dart';
+import '../services/notification_service.dart';
+import '../services/chat_service.dart';
 import '../models/user_model.dart';
+import '../models/conversation_model.dart';
 import 'feed_page.dart';
 import 'profile_page.dart';
 import 'search_page.dart';
@@ -22,23 +26,20 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   late ScrollController _scrollController;
-  late AnimationController _appBarAnimationController;
-  late Animation<double> _appBarAnimation;
-  
-  double _lastScrollOffset = 0.0;
-  bool _isAppBarVisible = true;
-  
-  static const double _appBarHeight = 70;
-  static const double _appBarExtraGap = 25;
-  static const double _scrollThreshold = 5.0; // Reduced threshold for faster response
-  
+
+  static const double _appBarHeight = 53;
+  static const double _appBarExtraGap = 16;
+
   final AuthService _authService = AuthService();
   late Future<UserModel?> _userFuture;
   final EngagementService _engagementService = EngagementService();
   Timer? _engagementTimer;
+  final NotificationService _notificationService = NotificationService();
+  final ChatService _chatService = ChatService();
+  String? _currentUserIdForBadges;
 
   Widget _pageFor(int index) {
     switch (index) {
@@ -80,8 +81,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       case 3:
       default:
         return FutureBuilder<String>(
-          future: SharedPreferences.getInstance().then((prefs) => 
-            prefs.getString('current_user_uid') ?? ''),
+          future: SharedPreferences.getInstance().then(
+            (prefs) => prefs.getString('current_user_uid') ?? '',
+          ),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
@@ -93,6 +95,24 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             );
           },
         );
+    }
+  }
+
+  Future<void> _loadCurrentUserIdForBadges() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final uid = prefs.getString('current_user_uid');
+
+      if (!mounted) {
+        _currentUserIdForBadges = uid;
+        return;
+      }
+
+      setState(() {
+        _currentUserIdForBadges = uid;
+      });
+    } catch (e) {
+      debugPrint('Error loading user id for badges: $e');
     }
   }
 
@@ -121,34 +141,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    _scrollController.addListener(_onScroll);
     _userFuture = _loadCurrentUser();
-    
-    // Initialize animation controller for smooth transitions
-    _appBarAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200), // Fast like Instagram
-    );
-    
-    _appBarAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _appBarAnimationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    // Start with app bar visible
-    _appBarAnimationController.value = 1.0;
-
     _startEngagementScheduler();
+    _loadCurrentUserIdForBadges();
   }
 
   @override
   void dispose() {
-    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    _appBarAnimationController.dispose();
     _engagementTimer?.cancel();
     super.dispose();
   }
@@ -192,55 +192,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    
-    final currentOffset = _scrollController.offset;
-    final difference = currentOffset - _lastScrollOffset;
-    
-    // Show app bar when at the top
-    if (currentOffset <= 0) {
-      if (!_isAppBarVisible) {
-        _showAppBar();
-      }
-      _lastScrollOffset = currentOffset;
-      return;
-    }
-    
-    // Only trigger on meaningful scroll
-    if (difference.abs() < _scrollThreshold) {
-      return;
-    }
-    
-    // Scrolling down - hide app bar
-    if (difference > 0 && _isAppBarVisible) {
-      _hideAppBar();
-    }
-    // Scrolling up - show app bar
-    else if (difference < 0 && !_isAppBarVisible) {
-      _showAppBar();
-    }
-    
-    _lastScrollOffset = currentOffset;
-  }
-
-  void _showAppBar() {
-    _isAppBarVisible = true;
-    _appBarAnimationController.forward();
-  }
-
-  void _hideAppBar() {
-    _isAppBarVisible = false;
-    _appBarAnimationController.reverse();
-  }
-
   void _onItemTapped(int index) {
-    // Reset scroll position and show app bar when changing tabs
-    if (_selectedIndex != index) {
-      _lastScrollOffset = 0.0;
-      _showAppBar();
-    }
-    
     setState(() {
       _selectedIndex = index;
     });
@@ -251,125 +203,255 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final bool showGlobalAppBar = _selectedIndex == 0;
 
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 14, 14, 14),
+      backgroundColor: const Color.fromARGB(255, 0, 0, 0),
       appBar: null,
       body: Stack(
         children: [
           // Content underneath with animated padding
           SafeArea(
             top: false,
-            child: AnimatedBuilder(
-              animation: _appBarAnimation,
-              builder: (context, child) {
-                final topPadding = showGlobalAppBar 
-                    ? (_appBarHeight + _appBarExtraGap) * _appBarAnimation.value 
-                    : 0.0;
-                
-                return Padding(
-                  padding: EdgeInsets.only(top: topPadding),
-                  child: _pageFor(_selectedIndex),
-                );
-              },
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: showGlobalAppBar ? (_appBarHeight + _appBarExtraGap) : 0.0,
+              ),
+              child: _pageFor(_selectedIndex),
             ),
           ),
-          // Animated top bar overlay
+          // Top bar overlay
           if (showGlobalAppBar)
             SafeArea(
               bottom: false,
-              child: AnimatedBuilder(
-                animation: _appBarAnimation,
-                builder: (context, child) {
-                  return Transform.translate(
-                    offset: Offset(0, -_appBarHeight * (1 - _appBarAnimation.value)),
-                    child: Opacity(
-                      opacity: _appBarAnimation.value,
-                      child: Container(
-                        height: _appBarHeight,
-                        color: const Color.fromARGB(255, 14, 14, 14),
-                        padding: const EdgeInsets.only(left: 8, bottom: 30),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: Text(
-                                'Beezy',
-                                style: GoogleFonts.dancingScript(
-                                  color: Colors.white,
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.search, size: 25),
-                                  color: Colors.white,
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const SearchPage(),
-                                      ),
-                                    );
-                                  },
-                                  tooltip: 'Search',
-                                ),
-                                IconButton(
-                                  icon: const FaIcon(FontAwesomeIcons.heart, size: 18),
-                                  color: Colors.white,
-                                  onPressed: () async {
-                                    final prefs = await SharedPreferences.getInstance();
-                                    final currentUserId = prefs.getString('current_user_uid') ?? '';
-
-                                    if (currentUserId.isEmpty) return;
-
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => NotificationsPage(
-                                          currentUserId: currentUserId,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  tooltip: 'Activity',
-                                ),
-                                IconButton(
-                                  icon: const FaIcon(FontAwesomeIcons.comment, size: 18),
-                                  color: Colors.white,
-                                  onPressed: () async {
-                                    final prefs = await SharedPreferences.getInstance();
-                                    final currentUserId = prefs.getString('current_user_uid') ?? '';
-                                    final currentUserName = prefs.getString('current_user_name') ?? 'User';
-                                    final currentUserImage = prefs.getString('current_user_avatar') ?? '';
-
-                                    if (currentUserId.isEmpty) return;
-
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => ConversationsPage(
-                                          currentUserId: currentUserId,
-                                          currentUserName: currentUserName,
-                                          currentUserImage: currentUserImage,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  tooltip: 'Messages',
-                                ),
-                                const SizedBox(width: 4),
-                              ],
-                            ),
-                          ],
+              child: Container(
+                height: _appBarHeight,
+                color: const Color.fromARGB(255, 14, 14, 14),
+                padding: const EdgeInsets.only(left: 8, bottom: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Text(
+                        'Beezy',
+                        style: GoogleFonts.dancingScript(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
-                  );
-                },
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.search, size: 25),
+                          color: Colors.white,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SearchPage(),
+                              ),
+                            );
+                          },
+                          tooltip: 'Search',
+                        ),
+                        if (_currentUserIdForBadges == null || _currentUserIdForBadges!.isEmpty)
+                          IconButton(
+                            icon: const FaIcon(FontAwesomeIcons.heart, size: 18),
+                            color: Colors.white,
+                            onPressed: () async {
+                              final prefs = await SharedPreferences.getInstance();
+                              final currentUserId = prefs.getString('current_user_uid') ?? '';
+
+                              if (currentUserId.isEmpty) return;
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => NotificationsPage(
+                                    currentUserId: currentUserId,
+                                  ),
+                                ),
+                              );
+                            },
+                            tooltip: 'Activity',
+                          )
+                        else
+                          StreamBuilder<QuerySnapshot>(
+                            stream: _notificationService.getUserNotifications(
+                              _currentUserIdForBadges!,
+                            ),
+                            builder: (context, snapshot) {
+                              int unreadCount = 0;
+                              if (snapshot.hasData) {
+                                for (final doc in snapshot.data!.docs) {
+                                  final data =
+                                      doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+                                  final isRead = (data['isRead'] as bool?) ?? false;
+                                  if (!isRead) {
+                                    unreadCount++;
+                                  }
+                                }
+                              }
+
+                              final showBadge = unreadCount > 0;
+                              final badgeText = unreadCount > 9 ? '9+' : '$unreadCount';
+
+                              return Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  IconButton(
+                                    icon: const FaIcon(FontAwesomeIcons.heart, size: 18),
+                                    color: Colors.white,
+                                    onPressed: () async {
+                                      final prefs = await SharedPreferences.getInstance();
+                                      final currentUserId =
+                                          prefs.getString('current_user_uid') ?? '';
+
+                                      if (currentUserId.isEmpty) return;
+
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => NotificationsPage(
+                                            currentUserId: currentUserId,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    tooltip: 'Activity',
+                                  ),
+                                  if (showBadge)
+                                    Positioned(
+                                      right: 4,
+                                      top: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 5, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.yellow,
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 16,
+                                          minHeight: 16,
+                                        ),
+                                        child: Text(
+                                          badgeText,
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.black,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        if (_currentUserIdForBadges == null || _currentUserIdForBadges!.isEmpty)
+                          IconButton(
+                            icon: const FaIcon(FontAwesomeIcons.comment, size: 18),
+                            color: Colors.white,
+                            onPressed: () async {
+                              final prefs = await SharedPreferences.getInstance();
+                              final currentUserId = prefs.getString('current_user_uid') ?? '';
+                              final currentUserName = prefs.getString('current_user_name') ?? 'User';
+                              final currentUserImage = prefs.getString('current_user_avatar') ?? '';
+
+                              if (currentUserId.isEmpty) return;
+
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ConversationsPage(
+                                    currentUserId: currentUserId,
+                                    currentUserName: currentUserName,
+                                    currentUserImage: currentUserImage,
+                                  ),
+                                ),
+                              );
+                            },
+                            tooltip: 'Messages',
+                          )
+                        else
+                          StreamBuilder<List<Conversation>>(
+                            stream: _chatService.streamConversations(_currentUserIdForBadges!),
+                            builder: (context, snapshot) {
+                              int totalUnread = 0;
+                              if (snapshot.hasData) {
+                                for (final c in snapshot.data!) {
+                                  totalUnread +=
+                                      c.unreadCounts[_currentUserIdForBadges!] ?? 0;
+                                }
+                              }
+
+                              final showBadge = totalUnread > 0;
+                              final badgeText = totalUnread > 9 ? '9+' : '$totalUnread';
+
+                              return Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  IconButton(
+                                    icon: const FaIcon(FontAwesomeIcons.comment, size: 18),
+                                    color: Colors.white,
+                                    onPressed: () async {
+                                      final prefs = await SharedPreferences.getInstance();
+                                      final currentUserId = prefs.getString('current_user_uid') ?? '';
+                                      final currentUserName = prefs.getString('current_user_name') ?? 'User';
+                                      final currentUserImage = prefs.getString('current_user_avatar') ?? '';
+
+                                      if (currentUserId.isEmpty) return;
+
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ConversationsPage(
+                                            currentUserId: currentUserId,
+                                            currentUserName: currentUserName,
+                                            currentUserImage: currentUserImage,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    tooltip: 'Messages',
+                                  ),
+                                  if (showBadge)
+                                    Positioned(
+                                      right: 4,
+                                      top: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.yellow,
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 16,
+                                          minHeight: 16,
+                                        ),
+                                        child: Text(
+                                          badgeText,
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.poppins(
+                                            color: Colors.black,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        const SizedBox(width: 4),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
         ],

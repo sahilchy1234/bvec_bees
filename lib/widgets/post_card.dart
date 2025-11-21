@@ -10,6 +10,7 @@ import '../models/post_model.dart';
 import '../services/post_service.dart';
 import '../pages/trending_page.dart';
 import '../pages/profile_page.dart';
+import '../pages/fullscreen_image_page.dart';
 import 'cached_network_image_widget.dart';
 
 class PostCard extends StatefulWidget {
@@ -297,6 +298,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   final GlobalKey _pickerKey = GlobalKey();
   static const double _pickerIconSlotWidth = 44.0;
   static const double _pickerHorizontalPadding = 10.0;
+  bool _isOpeningImage = false;
 
   final List<_ReactionOption> _reactionOptions = const [
     _ReactionOption(key: 'like', label: 'Like', emoji: '👍', color: Colors.blue),
@@ -321,6 +323,31 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     _currentReaction = widget.post.reactions[widget.currentUserId];
     _totalReactions = _reactionCounts.values.fold<int>(0, (sum, value) => sum + value);
     _pickerController = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+  }
+
+  void _openFullscreenImage() {
+    if (_isOpeningImage || widget.post.imageUrls == null || widget.post.imageUrls!.isEmpty) {
+      return;
+    }
+
+    _isOpeningImage = true;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FullscreenImagePage(
+          imageUrl: widget.post.imageUrls!.first,
+        ),
+      ),
+    ).then((_) {
+      if (mounted) {
+        setState(() {
+          _isOpeningImage = false;
+        });
+      } else {
+        _isOpeningImage = false;
+      }
+    });
   }
 
   void _openReactionsPanel() {
@@ -987,12 +1014,22 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
           if (widget.post.imageUrls != null && widget.post.imageUrls!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: CachedNetworkImageWidget(
-                imageUrl: widget.post.imageUrls!.first,
-                width: double.infinity,
-                height: 300,
-                fit: BoxFit.cover,
-                borderRadius: BorderRadius.circular(8),
+              child: GestureDetector(
+                onTap: _openFullscreenImage,
+                onScaleUpdate: (details) {
+                  // Only treat as pinch when there are at least two pointers
+                  if (details.pointerCount >= 2) {
+                    _openFullscreenImage();
+                  }
+                },
+                child: CachedNetworkImageWidget(
+                  imageUrl: widget.post.imageUrls!.first,
+                  width: double.infinity,
+                  height: 300,
+                  fit: BoxFit.cover,
+                  borderRadius: BorderRadius.circular(8),
+                  alignment: Alignment(0, widget.post.imageAlignmentY),
+                ),
               ),
             ),
           // Engagement stats

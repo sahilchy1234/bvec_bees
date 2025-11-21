@@ -32,10 +32,12 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   final HotNotService _hotNotService = HotNotService();
   final AuthService _authService = AuthService();
   List<UserModel> _potentialMatches = [];
+  final List<UserModel> _prefetchedMatches = [];
   List<UserModel> _hottedUsers = [];
   List<Match> _matches = [];
   List<UserModel> _leaderboardUsers = [];
   bool _isLoading = true;
+  bool _isPrefetching = false;
   bool _isLoadingHotted = false;
   bool _isLoadingMatches = false;
   bool _isLoadingLeaderboard = false;
@@ -50,12 +52,14 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   UserModel? _matchedUser;
   _HotNotTab _selectedTab = _HotNotTab.feed;
   final Map<String, UserModel?> _userCache = {};
+  final Set<String> _seenUserIds = <String>{};
   StreamSubscription<List<UserModel>>? _hottedSubscription;
   StreamSubscription<List<Match>>? _matchesSubscription;
   bool _hasLoadedHotted = false;
   bool _hasLoadedMatches = false;
   bool _hasLoadedLeaderboard = false;
   final Set<String> _unhottingUserIds = <String>{};
+  static const int _prefetchThreshold = 5;
 
   late AnimationController _swipeController;
   late Animation<Offset> _swipeAnimation;
@@ -262,6 +266,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   }
 
   Future<void> _loadMatches() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     try {
       if (_currentUserId.isEmpty) {
@@ -270,6 +275,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
       }
 
       if (_currentUserId.isEmpty) {
+        if (!mounted) return;
         setState(() => _isLoading = false);
         return;
       }
@@ -278,6 +284,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
       _currentUser = await _authService.getUserProfile(_currentUserId);
 
       if (_currentUser == null) {
+        if (!mounted) return;
         setState(() => _isLoading = false);
         return;
       }
@@ -295,18 +302,75 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
         genderFilter: _genderFilter,
       );
 
+      if (!mounted) return;
       setState(() {
         _potentialMatches = feedUsers;
         _currentIndex = 0;
         _isLoading = false;
+        _seenUserIds
+          ..clear()
+          ..addAll(feedUsers.map((u) => u.uid));
+        _prefetchedMatches.clear();
       });
+
+      // Warm up the next batch in the background so swiping stays instant
+      await _prefetchNextFeed();
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading feed: $e')),
-        );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading feed: $e')),
+      );
+    }
+  }
+
+  Future<void> _prefetchNextFeed() async {
+    if (!mounted) return;
+    if (_isPrefetching) return;
+    if (_currentUserId.isEmpty || _currentUser == null) return;
+
+    setState(() {
+      _isPrefetching = true;
+    });
+
+    try {
+      final feedUsers = await _hotNotService.getFeed(
+        currentUserId: _currentUserId,
+        currentUserGender: _currentUser!.gender,
+        lookingFor: _currentUser!.lookingFor,
+        genderFilter: _genderFilter,
+      );
+
+      if (!mounted) return;
+
+      // Filter out users we've already seen in this session
+      final newUsers = feedUsers
+          .where((user) => !_seenUserIds.contains(user.uid))
+          .toList();
+
+      if (newUsers.isEmpty) {
+        setState(() {
+          _prefetchedMatches.clear();
+        });
+        return;
       }
+
+      setState(() {
+        _prefetchedMatches
+          ..clear()
+          ..addAll(newUsers);
+        _seenUserIds.addAll(newUsers.map((u) => u.uid));
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _prefetchedMatches.clear();
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isPrefetching = false;
+      });
     }
   }
 
@@ -403,7 +467,25 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
         _isAnimating = false;
         _currentIndex++;
         if (_currentIndex >= _potentialMatches.length) {
-          _loadMatches();
+          if (_prefetchedMatches.isNotEmpty) {
+            _potentialMatches.addAll(_prefetchedMatches);
+            _prefetchedMatches.clear();
+
+            // Ensure index is still in range after extending the list
+            if (_currentIndex >= _potentialMatches.length) {
+              _currentIndex = _potentialMatches.isEmpty
+                  ? 0
+                  : _potentialMatches.length - 1;
+            }
+
+            // Start prefetching the next batch when we roll over
+            _prefetchNextFeed();
+          } else {
+            _loadMatches();
+          }
+        } else if (_potentialMatches.length - _currentIndex <= _prefetchThreshold) {
+          // When we are close to the end of the current stack, start prefetching
+          _prefetchNextFeed();
         }
       });
     } catch (e) {

@@ -7,6 +7,7 @@ class Post {
   final String authorImage;
   final String content;
   final List<String>? imageUrls;
+  final double imageAlignmentY;
   final List<String> hashtags;
   final List<String> mentions;
   final DateTime timestamp;
@@ -24,6 +25,7 @@ class Post {
     required this.authorImage,
     required this.content,
     this.imageUrls,
+    this.imageAlignmentY = 0.0,
     required this.hashtags,
     required this.mentions,
     required this.timestamp,
@@ -44,6 +46,7 @@ class Post {
       'authorImage': authorImage,
       'content': content,
       'imageUrls': imageUrls ?? [],
+      'imageAlignmentY': imageAlignmentY,
       'hashtags': hashtags,
       'mentions': mentions,
       'timestamp': timestamp,
@@ -65,6 +68,7 @@ class Post {
       authorImage: map['authorImage'] ?? '',
       content: map['content'] ?? '',
       imageUrls: List<String>.from(map['imageUrls'] ?? []),
+      imageAlignmentY: (map['imageAlignmentY'] as num?)?.toDouble() ?? 0.0,
       hashtags: List<String>.from(map['hashtags'] ?? []),
       mentions: List<String>.from(map['mentions'] ?? []),
       timestamp: map['timestamp'] is Timestamp
@@ -116,6 +120,7 @@ class Post {
     String? authorImage,
     String? content,
     List<String>? imageUrls,
+    double? imageAlignmentY,
     List<String>? hashtags,
     List<String>? mentions,
     DateTime? timestamp,
@@ -131,6 +136,7 @@ class Post {
       authorImage: authorImage ?? this.authorImage,
       content: content ?? this.content,
       imageUrls: imageUrls ?? this.imageUrls,
+      imageAlignmentY: imageAlignmentY ?? this.imageAlignmentY,
       hashtags: hashtags ?? this.hashtags,
       mentions: mentions ?? this.mentions,
       timestamp: timestamp ?? this.timestamp,
@@ -138,8 +144,8 @@ class Post {
       comments: comments ?? this.comments,
       shares: shares ?? this.shares,
       likedBy: likedBy ?? this.likedBy,
-      reactionCounts: reactionCounts ?? reactionCounts,
-      reactions: reactions ?? reactions,
+      reactionCounts: this.reactionCounts,
+      reactions: this.reactions,
     );
   }
 
