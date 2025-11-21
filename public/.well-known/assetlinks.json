@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.bvec.bees",
+      "sha256_cert_fingerprints": [
+        "c6:8d:47:64:db:c5:68:1e:5a:65:c1:97:0c:96:13:e7:1d:0f:a5:d0:a3:33:26:4c:f9:53:b3:87:e2:21:2c:bb"
+      ]
+    }
+  }
+]

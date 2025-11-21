@@ -86,7 +86,7 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
 
   Future<void> _shareRumor(RumorModel rumor) async {
     final rumorId = rumor.id;
-    final shareUrl = 'https://getbeezy.app/rumor/$rumorId';
+    final shareUrl = 'https://link.getbeezy.app/rumor/$rumorId';
 
     try {
       final contentPreview = rumor.content.trim();

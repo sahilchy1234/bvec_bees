@@ -4,8 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 // simport 'package:firebase_performance/firebase_performance.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_dynamic_links/firebase_dynamic_links.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:app_links/app_links.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/home_page.dart';
@@ -83,33 +83,34 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  late final AppLinks _appLinks;
+
   @override
   void initState() {
     super.initState();
+    _appLinks = AppLinks();
     _initDynamicLinks();
   }
 
   Future<void> _initDynamicLinks() async {
     try {
-      final instance = FirebaseDynamicLinks.instance;
-
-      final initialData = await instance.getInitialLink();
-      if (initialData != null) {
-        _handleDeepLink(initialData.link);
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null) {
+        _handleDeepLink(initialUri);
       }
 
-      instance.onLink.listen((PendingDynamicLinkData data) {
-        _handleDeepLink(data.link);
-      }).onError((Object error) {
-        debugPrint('Dynamic link error: $error');
+      _appLinks.uriLinkStream.listen((Uri uri) {
+        _handleDeepLink(uri);
+      }, onError: (Object error) {
+        debugPrint('Deep link stream error: $error');
       });
     } catch (e) {
-      debugPrint('Failed to initialize dynamic links: $e');
+      debugPrint('Failed to initialize deep links: $e');
     }
   }
 
   void _handleDeepLink(Uri link) {
-    if (link.host != 'getbeezy.app') {
+    if (link.host != 'link.getbeezy.app') {
       return;
     }
     if (link.pathSegments.isEmpty) {

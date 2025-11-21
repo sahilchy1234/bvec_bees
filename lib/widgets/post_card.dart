@@ -406,8 +406,8 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
 
   Future<void> _sharePost() async {
     final postId = widget.post.id;
-    // TODO: Replace the base URL with your real share / deep-link domain.
-    final shareUrl = 'https://getbeezy.app/post/$postId';
+    // link.getbeezy.app is the configured Dynamic Links domain
+    final shareUrl = 'https://link.getbeezy.app/post/$postId';
 
     try {
       await _postService.sharePost(postId);
