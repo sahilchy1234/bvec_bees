@@ -72,6 +72,9 @@ class ChatService {
     required String senderImage,
     required String content,
     required String recipientId,
+    String? replyToMessageId,
+    String? replyToSenderName,
+    String? replyToContent,
   }) async {
     try {
       final messageId = uuid.v4();
@@ -84,6 +87,9 @@ class ChatService {
         content: content,
         timestamp: DateTime.now(),
         isRead: false,
+        replyToMessageId: replyToMessageId,
+        replyToSenderName: replyToSenderName,
+        replyToContent: replyToContent,
       );
 
       // Add message to subcollection
@@ -144,9 +150,24 @@ class ChatService {
   // Mark messages as read
   Future<void> markMessagesAsRead(String conversationId, String userId) async {
     try {
+      // Reset unread count for this user
       await _firestore.collection('conversations').doc(conversationId).update({
         'unreadCounts.$userId': 0,
       });
+
+      // Mark all messages sent by the *other* user as read so the sender
+      // can see accurate read receipts (blue ticks)
+      final messagesQuery = await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages')
+          .where('senderId', isNotEqualTo: userId)
+          .where('isRead', isEqualTo: false)
+          .get();
+
+      for (final doc in messagesQuery.docs) {
+        await doc.reference.update({'isRead': true});
+      }
     } catch (e) {
       throw Exception('Failed to mark messages as read: $e');
     }

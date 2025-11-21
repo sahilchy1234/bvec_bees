@@ -3,16 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/user_model.dart';
 import '../services/hot_not_service.dart';
 import '../services/auth_service.dart';
 import '../models/match_model.dart';
+import '../widgets/cached_network_image_widget.dart';
 import 'chat_page.dart';
 import 'hotnot_chats_page.dart';
 import 'dart:math' as math;
 import 'profile_page.dart';
 
 enum _HotNotTab { feed, hotted, matches, leaderboard }
+
+enum _LeaderboardFilter { all, male, female }
 
 class SwipePage extends StatefulWidget {
   final ScrollController scrollController;
@@ -36,6 +40,9 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   List<UserModel> _hottedUsers = [];
   List<Match> _matches = [];
   List<UserModel> _leaderboardUsers = [];
+  List<UserModel> _leaderboardAll = [];
+  List<UserModel> _leaderboardMale = [];
+  List<UserModel> _leaderboardFemale = [];
   bool _isLoading = true;
   bool _isPrefetching = false;
   bool _isLoadingHotted = false;
@@ -60,6 +67,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   bool _hasLoadedLeaderboard = false;
   final Set<String> _unhottingUserIds = <String>{};
   static const int _prefetchThreshold = 5;
+  _LeaderboardFilter _leaderboardFilter = _LeaderboardFilter.all;
 
   late AnimationController _swipeController;
   late Animation<Offset> _swipeAnimation;
@@ -101,6 +109,15 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
     );
 
     _loadMatches();
+  }
+
+  void _precacheUserAvatars(List<UserModel> users) {
+    for (final user in users) {
+      final url = user.avatarUrl;
+      if (url != null && url.isNotEmpty) {
+        precacheImage(CachedNetworkImageProvider(url), context);
+      }
+    }
   }
 
   void _selectTab(_HotNotTab tab) {
@@ -237,10 +254,15 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
     setState(() => _isLoadingLeaderboard = true);
     _hasLoadedLeaderboard = true;
     try {
-      final topUsers = await _hotNotService.getLeaderboard();
+      final all = await _hotNotService.getLeaderboard();
+      final male = await _hotNotService.getLeaderboard(genderFilter: 'Male');
+      final female = await _hotNotService.getLeaderboard(genderFilter: 'Female');
       if (!mounted) return;
       setState(() {
-        _leaderboardUsers = topUsers;
+        _leaderboardAll = all;
+        _leaderboardMale = male;
+        _leaderboardFemale = female;
+        _applyLeaderboardFilter();
         _isLoadingLeaderboard = false;
       });
     } catch (e) {
@@ -252,6 +274,20 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading leaderboard: $e')),
       );
+    }
+  }
+
+  void _applyLeaderboardFilter() {
+    switch (_leaderboardFilter) {
+      case _LeaderboardFilter.all:
+        _leaderboardUsers = _leaderboardAll;
+        break;
+      case _LeaderboardFilter.male:
+        _leaderboardUsers = _leaderboardMale;
+        break;
+      case _LeaderboardFilter.female:
+        _leaderboardUsers = _leaderboardFemale;
+        break;
     }
   }
 
@@ -313,6 +349,14 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
         _prefetchedMatches.clear();
       });
 
+      if (mounted && _potentialMatches.isNotEmpty) {
+        _precacheUserAvatars(
+          _potentialMatches.length > 5
+              ? _potentialMatches.sublist(0, 5)
+              : _potentialMatches,
+        );
+      }
+
       // Warm up the next batch in the background so swiping stays instant
       await _prefetchNextFeed();
     } catch (e) {
@@ -361,6 +405,14 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
           ..addAll(newUsers);
         _seenUserIds.addAll(newUsers.map((u) => u.uid));
       });
+
+      if (mounted && _prefetchedMatches.isNotEmpty) {
+        _precacheUserAvatars(
+          _prefetchedMatches.length > 5
+              ? _prefetchedMatches.sublist(0, 5)
+              : _prefetchedMatches,
+        );
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -678,11 +730,12 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
       );
     }
 
-    return CircleAvatar(
+    return CachedCircleAvatar(
+      imageUrl: imageUrl,
+      displayName: userName,
       radius: radius,
       backgroundColor: Colors.grey[900],
-      backgroundImage: NetworkImage(imageUrl),
-      onBackgroundImageError: (_, __) {},
+      textColor: Colors.black,
     );
   }
 
@@ -692,7 +745,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey[900],
         title: Text(
-          'Gender Filter',
+          'Which gender do you want to swipe on?',
           style: GoogleFonts.poppins(color: Colors.white),
         ),
         content: Column(
@@ -777,7 +830,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.white),
+            icon: const Icon(Icons.settings, color: Colors.white),
             onPressed: _showGenderFilterDialog,
           ),
         ],
@@ -1051,6 +1104,17 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
       padding: const EdgeInsets.all(16),
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildLeaderboardFilterChip('All', _LeaderboardFilter.all),
+            const SizedBox(width: 8),
+            _buildLeaderboardFilterChip('Male', _LeaderboardFilter.male),
+            const SizedBox(width: 8),
+            _buildLeaderboardFilterChip('Female', _LeaderboardFilter.female),
+          ],
+        ),
+        const SizedBox(height: 16),
         if (_leaderboardUsers.length >= 3)
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -1085,6 +1149,37 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
           return _buildLeaderboardRow(index, maxHot);
         }),
       ],
+    );
+  }
+
+  Widget _buildLeaderboardFilterChip(String label, _LeaderboardFilter filter) {
+    final bool isActive = _leaderboardFilter == filter;
+    return GestureDetector(
+      onTap: () {
+        if (_leaderboardFilter == filter) return;
+        setState(() {
+          _leaderboardFilter = filter;
+          _applyLeaderboardFilter();
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.yellow : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? Colors.yellow : Colors.grey[700]!,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            color: isActive ? Colors.black : Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 
@@ -1469,11 +1564,14 @@ Widget _buildPlaceholder({
                 onPanStart: (_) => _handleDragStart(),
                 onPanUpdate: _handleDragUpdate,
                 onPanEnd: _handleDragEnd,
-                child: Stack(
-                  children: [
-                    _buildProfileCard(currentUser),
-                    _buildSwipeIndicatorOverlay(),
-                  ],
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Stack(
+                    children: [
+                      _buildProfileCard(currentUser),
+                      _buildSwipeIndicatorOverlay(),
+                    ],
+                  ),
                 ),
               ),
             ),

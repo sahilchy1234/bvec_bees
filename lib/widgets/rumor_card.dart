@@ -363,14 +363,14 @@ class _RumorCardState extends State<RumorCard> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'True',
+                      'Upvote',
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 11,
                       ),
                     ),
                     Text(
-                      'False',
+                      'Downvote',
                       style: TextStyle(
                         color: Colors.grey[500],
                         fontSize: 11,
@@ -429,7 +429,7 @@ class _RumorCardState extends State<RumorCard> {
                           decoration: BoxDecoration(
                             color: _userVotedYes
                                 ? Colors.amber
-                                : Colors.grey[850],
+                                : const Color.fromARGB(0, 0, 0, 0),
                             borderRadius: BorderRadius.circular(999),
                             border: _userVotedYes
                                 ? null
@@ -452,36 +452,41 @@ class _RumorCardState extends State<RumorCard> {
                             children: [
                               FaIcon(
                                 FontAwesomeIcons.thumbsUp,
-                                color: _userVotedYes ? Colors.black : Colors.amber,
+                                color: _userVotedYes ? Colors.black : const Color.fromARGB(255, 255, 255, 255),
                                 size: 16,
                               ),
                               const SizedBox(width: 6),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'True',
-                                    style: TextStyle(
-                                      color: _userVotedYes ? Colors.black : Colors.amber,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Upvote',
+                                        style: TextStyle(
+                                          color: _userVotedYes ? Colors.black : const Color.fromARGB(255, 255, 255, 255),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      Container(
+                                        margin: const EdgeInsets.symmetric(horizontal: 6),
+                                        width: 1,
+                                        height: 16,
+                                        color: _userVotedYes ? Colors.black : const Color.fromARGB(255, 255, 255, 255),
+                                      ),
+                                      Text(
+                                        '$_yesVotesLocal',
+                                        style: TextStyle(
+                                          color: _userVotedYes ? Colors.black : const Color.fromARGB(255, 255, 255, 255),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                                    width: 1,
-                                    height: 16,
-                                    color: _userVotedYes ? Colors.black : Colors.amber,
-                                  ),
-                                  Text(
-                                    '$_yesVotesLocal',
-                                    style: TextStyle(
-                                      color: _userVotedYes ? Colors.black : Colors.amber,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ],
                           ),
@@ -534,7 +539,7 @@ class _RumorCardState extends State<RumorCard> {
                           decoration: BoxDecoration(
                             color: _userVotedNo
                                 ? Colors.amber
-                                : Colors.grey[850],
+                                : const Color.fromARGB(0, 0, 0, 0),
                             borderRadius: BorderRadius.circular(999),
                             border: _userVotedNo
                                 ? null
@@ -557,36 +562,41 @@ class _RumorCardState extends State<RumorCard> {
                             children: [
                               FaIcon(
                                 FontAwesomeIcons.thumbsDown,
-                                color: _userVotedNo ? Colors.black : Colors.amber,
+                                color: _userVotedNo ? Colors.black : const Color.fromARGB(255, 255, 255, 255),
                                 size: 16,
                               ),
                               const SizedBox(width: 6),
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'False',
-                                    style: TextStyle(
-                                      color: _userVotedNo ? Colors.black : Colors.amber,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Downvote',
+                                        style: TextStyle(
+                                          color: _userVotedNo ? Colors.black : const Color.fromARGB(255, 255, 255, 255),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      Container(
+                                        margin: const EdgeInsets.symmetric(horizontal: 6),
+                                        width: 1,
+                                        height: 16,
+                                        color: _userVotedNo ? Colors.black : const Color.fromARGB(255, 255, 255, 255),
+                                      ),
+                                      Text(
+                                        '$_noVotesLocal',
+                                        style: TextStyle(
+                                          color: _userVotedNo ? Colors.black : const Color.fromARGB(255, 255, 255, 255),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                                    width: 1,
-                                    height: 16,
-                                    color: _userVotedNo ? Colors.black : Colors.amber,
-                                  ),
-                                  Text(
-                                    '$_noVotesLocal',
-                                    style: TextStyle(
-                                      color: _userVotedNo ? Colors.black : Colors.amber,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ],
                           ),

@@ -10,7 +10,7 @@ enum CompressionType {
 
 class ImageCompressionService {
   // Maximum file sizes in bytes
-  static const int _avatarMaxSize = 30 * 1024; // 30KB
+  static const int _avatarMaxSize = 120 * 1024; // 120KB
   static const int _idCardMaxSize = 30 * 1024; // 30KB
   static const int _postMaxSize = 200 * 1024;   // 200KB
   
@@ -89,8 +89,8 @@ class ImageCompressionService {
     
     switch (type) {
       case CompressionType.avatar:
-        maxWidth = 300;
-        maxHeight = 300;
+        maxWidth = 600;
+        maxHeight = 600;
         break;
       case CompressionType.idCard:
         maxWidth = 400;

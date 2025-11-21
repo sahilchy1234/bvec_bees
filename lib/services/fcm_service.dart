@@ -1,85 +1,18 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:io';
-import 'dart:async';
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  late FlutterLocalNotificationsPlugin _localNotifications;
-  StreamSubscription<QuerySnapshot>? _notificationSubscription;
 
   factory FCMService() {
     return _instance;
   }
 
-  void _listenToUserNotifications(String userId) {
-    // Cancel any existing subscription
-    _notificationSubscription?.cancel();
-
-    _notificationSubscription = _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('notifications')
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .listen((snapshot) {
-      for (final change in snapshot.docChanges) {
-        if (change.type == DocumentChangeType.added &&
-            !change.doc.metadata.hasPendingWrites) {
-          final data =
-              change.doc.data() ?? <String, dynamic>{};
-          final title = (data['title'] as String?) ?? 'Notification';
-          final body = (data['body'] as String?) ?? '';
-          _showSimpleLocalNotification(title, body);
-        }
-      }
-    }, onError: (e) {
-      print('Error listening to user notifications: $e');
-    });
-  }
-
-  FCMService._internal() {
-    _initializeLocalNotifications();
-  }
-
-  void _initializeLocalNotifications() {
-    _localNotifications = FlutterLocalNotificationsPlugin();
-
-    if (Platform.isAndroid) {
-      final androidPlugin = _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>();
-      if (androidPlugin != null) {
-        androidPlugin.createNotificationChannel(
-          const AndroidNotificationChannel(
-            'high_importance_channel',
-            'High Importance Notifications',
-            description: 'This channel is used for important notifications.',
-            importance: Importance.max,
-            enableVibration: true,
-            playSound: true,
-          ),
-        );
-      }
-    }
-
-    const InitializationSettings initializationSettings =
-        InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      iOS: DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-      ),
-    );
-
-    _localNotifications.initialize(initializationSettings);
-  }
+  FCMService._internal();
 
   Future<void> initialize(String userId) async {
     // Debug log: starting FCM init
@@ -104,10 +37,7 @@ class FCMService {
     } else {
       print('[FCM] getToken returned null for user $userId');
     }
-
-    // Handle foreground messages from FCM
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-
+    
     // Handle background messages from FCM
     FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
 
@@ -115,9 +45,6 @@ class FCMService {
     _firebaseMessaging.onTokenRefresh.listen((newToken) {
       _saveFCMToken(userId, newToken);
     });
-
-    // Listen to Firestore notifications for this user to show local popups
-    _listenToUserNotifications(userId);
   }
 
   Future<void> _saveFCMToken(String userId, String token) async {
@@ -134,67 +61,9 @@ class FCMService {
     }
   }
 
-  void _handleForegroundMessage(RemoteMessage message) {
-    print('Foreground message: ${message.notification?.title}');
-    _showLocalNotification(message);
-  }
-
   void _handleMessageOpenedApp(RemoteMessage message) {
     print('Message opened app: ${message.data}');
     // Handle navigation based on message data
-  }
-
-  Future<void> _showLocalNotification(RemoteMessage message) async {
-    final notification = message.notification;
-    if (notification == null) return;
-
-    await _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          'high_importance_channel',
-          'High Importance Notifications',
-          channelDescription:
-              'This channel is used for important notifications.',
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showSimpleLocalNotification(String title, String body) async {
-    await _localNotifications.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
-      title,
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          'high_importance_channel',
-          'High Importance Notifications',
-          channelDescription:
-              'This channel is used for important notifications.',
-          importance: Importance.max,
-          priority: Priority.high,
-          playSound: true,
-          enableVibration: true,
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-    );
   }
 
   Future<void> sendNotification({

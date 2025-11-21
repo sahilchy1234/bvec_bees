@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import '../services/auth_service.dart';
 import 'pending_verification_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,186 +56,130 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final primaryYellow = const Color(0xFFFFD600); // Bright yellow
-    final darkBackground = const Color(0xFF181818);
+    final primaryYellow = const Color(0xFFFFD600);
 
     return Scaffold(
-      backgroundColor: darkBackground,
-      body: Stack(
-        
-        children: [
-          // Yellow glow blur background
-          Positioned(
-
-            
-            top: -60,
-            left: -60,
-
-            child: Container(
-              width: 260,
-              height: 260,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    primaryYellow.withOpacity(0.4),
-                    Colors.transparent,
-                  ],
-                  radius: 0.8,
-                ),
-              ),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-                child: const SizedBox(),
-              ),
-            ),
-          ),
-          // Glossy blur overlay
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: const SizedBox(),
-            ),
-          ),
-          // Main login content
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: primaryYellow.withOpacity(0.1),
-                      blurRadius: 24,
-                      offset: const Offset(0, 4),
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 8),
+                  Text(
+                    'Beezy',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: primaryYellow,
                     ),
-                  ],
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 16),
-                      Text(
-                        "Welcome back!",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: primaryYellow,
-                          letterSpacing: 0.5,
-                        ),
-                        textAlign: TextAlign.center,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Log in to continue',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white70,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
+                  TextFormField(
+                    controller: _rollController,
+                    style: const TextStyle(color: Colors.white),
+                    cursorColor: primaryYellow,
+                    decoration: InputDecoration(
+                      labelText: 'Roll Number',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      filled: true,
+                      fillColor: const Color(0xFF1F1F1F),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF333333)),
                       ),
-                      const SizedBox(height: 32),
-                      TextFormField(
-                        controller: _rollController,
-                        style: const TextStyle(color: Colors.white),
-                        cursorColor: primaryYellow,
-                        decoration: InputDecoration(
-                          labelText: 'Roll Number',
-                          labelStyle: TextStyle(color: primaryYellow),
-                          filled: true,
-                          fillColor: Colors.white.withOpacity(0.06),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide:
-                                BorderSide(color: primaryYellow, width: 2),
-                          ),
-                          floatingLabelStyle: TextStyle(
-                            color: primaryYellow,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: primaryYellow, width: 2),
                       ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: true,
-                        style: const TextStyle(color: Colors.white),
-                        cursorColor: primaryYellow,
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          labelStyle: TextStyle(color: primaryYellow),
-                          filled: true,
-                          fillColor: Colors.white.withOpacity(0.06),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide:
-                                BorderSide(color: primaryYellow, width: 2),
-                          ),
-                          floatingLabelStyle: TextStyle(
-                            color: primaryYellow,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                    ),
+                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    style: const TextStyle(color: Colors.white),
+                    cursorColor: primaryYellow,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      filled: true,
+                      fillColor: const Color(0xFF1F1F1F),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF333333)),
                       ),
-                      const SizedBox(height: 28),
-                      ElevatedButton(
-                        onPressed: _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryYellow,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          elevation: 8,
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 17,
-                          ),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 28,
-                                height: 28,
-                                child: CircularProgressIndicator(
-                                  color: Colors.black,
-                                  strokeWidth: 3,
-                                ),
-                              )
-                            : const Text('Login'),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: primaryYellow, width: 2),
                       ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () {
-                         Navigator.pushNamed(context, '/register');
+                    ),
+                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _login,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryYellow,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              color: Colors.black,
+                              strokeWidth: 2.5,
+                            ),
+                          )
+                        : const Text(
+                            'Login',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/register');
 
           //                  Navigator.pushReplacement(
           //   context,
           //   MaterialPageRoute(builder: (_) => const VerificationCompletePage()),
           // );
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: primaryYellow,
-                          textStyle: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        child: const Text('Don\'t have an account? Register'),
-                      ),
-                    ],
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: primaryYellow,
+                    ),
+                    child: const Text("Don't have an account? Register"),
                   ),
-                ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

@@ -6,6 +6,7 @@ import '../models/match_model.dart';
 import '../models/user_model.dart';
 import '../services/hot_not_service.dart';
 import '../services/auth_service.dart';
+import '../widgets/cached_network_image_widget.dart';
 import 'chat_page.dart';
 
 class HotNotChatsPage extends StatefulWidget {
@@ -63,11 +64,12 @@ class _HotNotChatsPageState extends State<HotNotChatsPage> {
         ),
       );
     }
-    return CircleAvatar(
+    return CachedCircleAvatar(
+      imageUrl: imageUrl,
+      displayName: userName,
       radius: radius,
       backgroundColor: Colors.grey[900],
-      backgroundImage: NetworkImage(imageUrl),
-      onBackgroundImageError: (_, __) {},
+      textColor: Colors.black,
     );
   }
 
@@ -122,12 +124,17 @@ class _HotNotChatsPageState extends State<HotNotChatsPage> {
         ),
       ),
       body: _currentUserId.isEmpty
-          ? const Center(child: CircularProgressIndicator(color: Colors.pinkAccent))
+          // While current user info is loading, show a single loader
+          ? const Center(
+              child: CircularProgressIndicator(color: Colors.pinkAccent),
+            )
           : StreamBuilder<List<Match>>(
               stream: _hotNotService.streamMatches(_currentUserId),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: Colors.pinkAccent));
+                  return const Center(
+                    child: CircularProgressIndicator(color: Colors.pinkAccent),
+                  );
                 }
                 if (snapshot.hasError) {
                   return Center(
@@ -162,6 +169,10 @@ class _HotNotChatsPageState extends State<HotNotChatsPage> {
                       });
                     }
                     final otherUser = _userCache[otherUserId];
+                    // While the other user's profile is still loading, skip rendering this row
+                    if (otherUser == null) {
+                      return const SizedBox.shrink();
+                    }
                     return InkWell(
                       onTap: () => _openChat(match),
                       child: Container(
@@ -182,7 +193,7 @@ class _HotNotChatsPageState extends State<HotNotChatsPage> {
                         ),
                         child: Row(
                           children: [
-                            _buildUserAvatar(otherUser?.avatarUrl ?? '', otherUser?.name ?? 'Match', radius: 28),
+                            _buildUserAvatar(otherUser.avatarUrl ?? '', otherUser.name ?? 'Match', radius: 28),
                             const SizedBox(width: 16),
                             Expanded(
                               child: Column(
@@ -192,7 +203,7 @@ class _HotNotChatsPageState extends State<HotNotChatsPage> {
                                     children: [
                                       Expanded(
                                         child: Text(
-                                          otherUser?.name ?? 'Match',
+                                          otherUser.name ?? 'Match',
                                           style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600),
                                           overflow: TextOverflow.ellipsis,
                                         ),

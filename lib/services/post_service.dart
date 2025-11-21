@@ -316,6 +316,19 @@ class PostService {
     }
   }
 
+  Future<Post?> getPost(String postId) async {
+    try {
+      final doc = await _firestore.collection('posts').doc(postId).get();
+      if (!doc.exists) {
+        return null;
+      }
+      final data = doc.data() as Map<String, dynamic>;
+      return Post.fromMap(data, doc.id);
+    } catch (e) {
+      throw Exception('Failed to get post: $e');
+    }
+  }
+
   Future<void> setReaction(
     String postId,
     String userId,

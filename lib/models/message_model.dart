@@ -9,6 +9,9 @@ class Message {
   final String content;
   final DateTime timestamp;
   final bool isRead;
+  final String? replyToMessageId;
+  final String? replyToSenderName;
+  final String? replyToContent;
 
   Message({
     required this.id,
@@ -19,6 +22,9 @@ class Message {
     required this.content,
     required this.timestamp,
     this.isRead = false,
+    this.replyToMessageId,
+    this.replyToSenderName,
+    this.replyToContent,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +37,9 @@ class Message {
       'content': content,
       'timestamp': timestamp,
       'isRead': isRead,
+      'replyToMessageId': replyToMessageId,
+      'replyToSenderName': replyToSenderName,
+      'replyToContent': replyToContent,
     };
   }
 
@@ -44,6 +53,9 @@ class Message {
       content: map['content'] ?? '',
       timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isRead: map['isRead'] ?? false,
+      replyToMessageId: map['replyToMessageId'],
+      replyToSenderName: map['replyToSenderName'],
+      replyToContent: map['replyToContent'],
     );
   }
 }

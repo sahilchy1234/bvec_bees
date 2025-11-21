@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
 import '../pages/trending_page.dart';
@@ -319,10 +320,43 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
       for (final option in _reactionOptions) option.key: option
     };
 
-    _reactionCounts = {..._createDefaultReactionCounts(), ...widget.post.reactionCounts};
+    _reactionCounts = {
+      ..._createDefaultReactionCounts(),
+      ...widget.post.reactionCounts,
+    };
     _currentReaction = widget.post.reactions[widget.currentUserId];
+    // Fallback: if reactions map doesn't have this user yet but likedBy does,
+    // treat it as a simple "like" so UI stays in sync across pages.
+    if (_currentReaction == null &&
+        widget.post.likedBy.contains(widget.currentUserId)) {
+      _currentReaction = 'like';
+    }
     _totalReactions = _reactionCounts.values.fold<int>(0, (sum, value) => sum + value);
     _pickerController = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+  }
+
+  @override
+  void didUpdateWidget(covariant PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.post.id != widget.post.id ||
+        oldWidget.post.reactionCounts != widget.post.reactionCounts ||
+        oldWidget.post.reactions != widget.post.reactions) {
+      _reactionCounts = {
+        ..._createDefaultReactionCounts(),
+        ...widget.post.reactionCounts,
+      };
+      _currentReaction = widget.post.reactions[widget.currentUserId];
+      if (_currentReaction == null &&
+          widget.post.likedBy.contains(widget.currentUserId)) {
+        _currentReaction = 'like';
+      }
+      _totalReactions =
+          _reactionCounts.values.fold<int>(0, (sum, value) => sum + value);
+      if (mounted) {
+        setState(() {});
+      }
+    }
   }
 
   void _openFullscreenImage() {
@@ -368,6 +402,31 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
         );
       },
     );
+  }
+
+  Future<void> _sharePost() async {
+    final postId = widget.post.id;
+    // TODO: Replace the base URL with your real share / deep-link domain.
+    final shareUrl = 'https://getbeezy.app/post/$postId';
+
+    try {
+      await _postService.sharePost(postId);
+
+      final contentPreview = widget.post.content.trim();
+      final message = contentPreview.isNotEmpty
+          ? 'Check out this post on Beezy:\n\n$contentPreview\n\n$shareUrl'
+          : 'Check out this post on Beezy:\n$shareUrl';
+
+      await Share.share(
+        message,
+        subject: 'Beezy post',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sharing post: $e')),
+      );
+    }
   }
 
   Future<void> _hapticSelect() async {
@@ -1093,22 +1152,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                       icon: FontAwesomeIcons.share,
                       label: 'Share',
                       color: Colors.grey,
-                      onTap: () async {
-                        try {
-                          await _postService.sharePost(widget.post.id);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Post shared!')),
-                            );
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e')),
-                            );
-                          }
-                        }
-                      },
+                      onTap: _sharePost,
                     ),
                   ),
                 ),

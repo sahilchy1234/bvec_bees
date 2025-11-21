@@ -161,446 +161,338 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     const yellowPrimary = Color(0xFFFFC107);
-    const yellowAccent = Color(0xFFFFD54F);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A),
-      body: Stack(
-        children: [
-          // Background gradient
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF1A1A1A),
-                  const Color(0xFF2D2D2D),
-                  const Color(0xFF1A1A1A),
-                ],
-              ),
-            ),
-          ),
-          // Glossy overlay
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.white.withOpacity(0.03),
-                      Colors.white.withOpacity(0.08),
-                      Colors.white.withOpacity(0.03),
-                    ],
-                    stops: const [0.1, 0.5, 0.9],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                // Custom App Bar
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Register',
+          style: TextStyle(color: Colors.white),
+        ),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(color: yellowPrimary),
+              )
+            : SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-                      ),
-                      const Text(
-                        'Register',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 48,
+                              backgroundColor: const Color(0xFF2D2D2D),
+                              backgroundImage:
+                                  _avatarFile != null ? FileImage(_avatarFile!) : null,
+                              child: _avatarFile == null
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 40,
+                                      color: yellowPrimary,
+                                    )
+                                  : null,
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: GestureDetector(
+                                onTap: () => _pickImage(true),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: const BoxDecoration(
+                                    color: yellowPrimary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.camera_alt,
+                                    color: Colors.black,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 40),
-                    ],
-                  ),
-                ),
-                // Form Content
-                Expanded(
-                  child: _isLoading
-                      ? Center(
-                          child: CircularProgressIndicator(
-                            color: yellowPrimary,
+                      const SizedBox(height: 24),
+
+                      _buildTextField(
+                        controller: _nameController,
+                        label: 'Full Name',
+                        icon: Icons.person_outline,
+                        validator: (v) =>
+                            (v == null || v.isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildDropdown(
+                              value: _semesterController.text.isNotEmpty
+                                  ? _semesterController.text
+                                  : null,
+                              label: 'Semester',
+                              icon: Icons.school_outlined,
+                              items: List.generate(8, (index) {
+                                final val = (index + 1).toString();
+                                return DropdownMenuItem(
+                                  value: val,
+                                  child: Text(val),
+                                );
+                              }),
+                              onChanged: (v) {
+                                setState(() {
+                                  _semesterController.text = v ?? '';
+                                });
+                              },
+                            ),
                           ),
-                        )
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                const SizedBox(height: 8),
-                                // Avatar Section
-                                Center(
-                                  child: Stack(
-                                    children: [
-                                      Container(
-                                        width: 100,
-                                        height: 100,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              yellowPrimary.withOpacity(0.3),
-                                              yellowAccent.withOpacity(0.1),
-                                            ],
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(3.0),
-                                          child: CircleAvatar(
-                                            radius: 48,
-                                            backgroundColor: const Color(0xFF2D2D2D),
-                                            backgroundImage: _avatarFile != null
-                                                ? FileImage(_avatarFile!)
-                                                : null,
-                                            child: _avatarFile == null
-                                                ? const Icon(
-                                                    Icons.person,
-                                                    size: 40,
-                                                    color: yellowPrimary,
-                                                  )
-                                                : null,
-                                          ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        bottom: 0,
-                                        right: 0,
-                                        child: GestureDetector(
-                                          onTap: () => _pickImage(true),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: const BoxDecoration(
-                                              color: yellowPrimary,
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const Icon(
-                                              Icons.camera_alt,
-                                              color: Colors.black,
-                                              size: 18,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 32),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildTextField(
+                              controller: _rollNoController,
+                              label: 'Roll No',
+                              icon: Icons.badge_outlined,
+                              validator: (v) =>
+                                  (v == null || v.isEmpty) ? 'Required' : null,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
 
-                                // Full Name
-                                _buildTextField(
-                                  controller: _nameController,
-                                  label: 'Full Name',
-                                  icon: Icons.person_outline,
-                                  validator: (v) =>
-                                      (v == null || v.isEmpty) ? 'Required' : null,
-                                ),
-                                const SizedBox(height: 16),
+                      _buildDropdown(
+                        value:
+                            _branchController.text.isNotEmpty ? _branchController.text : null,
+                        label: 'Branch',
+                        icon: Icons.engineering_outlined,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Computer Science and Engineering',
+                            child: Text(
+                              'Computer Science and Engineering',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Mechanical Engineering',
+                            child: Text(
+                              'Mechanical Engineering',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Civil Engineering',
+                            child: Text(
+                              'Civil Engineering',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          DropdownMenuItem(
+                            value:
+                                'Electronics and Telecommunication Engineering',
+                            child: Text(
+                              'Electronics and Telecommunication Engineering',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        onChanged: (v) {
+                          setState(() {
+                            _branchController.text = v ?? '';
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
 
-                                // Row for Semester and Roll No
-                                Row(
+                      _buildTextField(
+                        controller: TextEditingController(
+                          text: _selectedBirthdate != null
+                              ? '${_selectedBirthdate!.day}/${_selectedBirthdate!.month}/${_selectedBirthdate!.year}'
+                              : '',
+                        ),
+                        label: 'Birthdate',
+                        icon: Icons.cake_outlined,
+                        readOnly: true,
+                        onTap: () => _selectBirthdate(context),
+                        validator: (v) =>
+                            (v == null || v.isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      _buildDropdown(
+                        value: _selectedGender,
+                        label: 'Gender',
+                        icon: Icons.wc_outlined,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Male',
+                            child: Text('Male'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Female',
+                            child: Text('Female'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Non-binary',
+                            child: Text('Non-binary'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Prefer not to say',
+                            child: Text('Prefer not to say'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedGender = value;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      _buildTextField(
+                        controller: _emailController,
+                        label: 'Email',
+                        icon: Icons.email_outlined,
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (v) =>
+                            (v == null || v.isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      _buildTextField(
+                        controller: _passwordController,
+                        label: 'Password',
+                        icon: Icons.lock_outline,
+                        obscureText: true,
+                        validator: (v) =>
+                            (v == null || v.length < 6) ? 'Min 6 chars' : null,
+                      ),
+                      const SizedBox(height: 20),
+
+                      GestureDetector(
+                        onTap: () => _pickImage(false),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2D2D2D),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: _idCardFile != null
+                                  ? yellowPrimary
+                                  : Colors.grey.shade700,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: yellowPrimary.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.upload_file,
+                                  color: yellowPrimary,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Expanded(
-                                      child: _buildDropdown(
-                                        value: _semesterController.text.isNotEmpty
-                                            ? _semesterController.text
-                                            : null,
-                                        label: 'Semester',
-                                        icon: Icons.school_outlined,
-                                        items: List.generate(8, (index) {
-                                          final val = (index + 1).toString();
-                                          return DropdownMenuItem(
-                                            value: val,
-                                            child: Text(val),
-                                          );
-                                        }),
-                                        onChanged: (v) {
-                                          setState(() {
-                                            _semesterController.text = v ?? '';
-                                          });
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: _buildTextField(
-                                        controller: _rollNoController,
-                                        label: 'Roll No',
-                                        icon: Icons.badge_outlined,
-                                        validator: (v) =>
-                                            (v == null || v.isEmpty) ? 'Required' : null,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Branch Dropdown
-                                _buildDropdown(
-                                  value: _branchController.text.isNotEmpty
-                                      ? _branchController.text
-                                      : null,
-                                  label: 'Branch',
-                                  icon: Icons.engineering_outlined,
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'Computer Science and Engineering',
-                                      child: Text(
-                                        'Computer Science and Engineering',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Mechanical Engineering',
-                                      child: Text(
-                                        'Mechanical Engineering',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Civil Engineering',
-                                      child: Text(
-                                        'Civil Engineering',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Electronics and Telecommunication Engineering',
-                                      child: Text(
-                                        'Electronics and Telecommunication Engineering',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                  onChanged: (v) {
-                                    setState(() {
-                                      _branchController.text = v ?? '';
-                                    });
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Birthdate
-                                _buildTextField(
-                                  controller: TextEditingController(text: _selectedBirthdate != null ? '${_selectedBirthdate!.day}/${_selectedBirthdate!.month}/${_selectedBirthdate!.year}' : ''),
-                                  label: 'Birthdate',
-                                  icon: Icons.cake_outlined,
-                                  readOnly: true,
-                                  onTap: () => _selectBirthdate(context),
-                                  validator: (v) =>
-                                      (v == null || v.isEmpty) ? 'Required' : null,
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Gender
-                                _buildDropdown(
-                                  value: _selectedGender,
-                                  label: 'Gender',
-                                  icon: Icons.wc_outlined,
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'Male',
-                                      child: Text('Male'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Female',
-                                      child: Text('Female'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Non-binary',
-                                      child: Text('Non-binary'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Prefer not to say',
-                                      child: Text('Prefer not to say'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _selectedGender = value;
-                                    });
-                                  },
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Email
-                                _buildTextField(
-                                  controller: _emailController,
-                                  label: 'Email',
-                                  icon: Icons.email_outlined,
-                                  keyboardType: TextInputType.emailAddress,
-                                  validator: (v) =>
-                                      (v == null || v.isEmpty) ? 'Required' : null,
-                                ),
-                                const SizedBox(height: 16),
-
-                                // Password
-                                _buildTextField(
-                                  controller: _passwordController,
-                                  label: 'Password',
-                                  icon: Icons.lock_outline,
-                                  obscureText: true,
-                                  validator: (v) =>
-                                      (v == null || v.length < 6) ? 'Min 6 chars' : null,
-                                ),
-                                const SizedBox(height: 20),
-
-                                // ID Card Upload
-                                GestureDetector(
-                                  onTap: () => _pickImage(false),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF2D2D2D),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: _idCardFile != null
-                                            ? yellowPrimary
-                                            : Colors.grey.shade700,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(10),
-                                          decoration: BoxDecoration(
-                                            color: yellowPrimary.withOpacity(0.2),
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                          child: const Icon(
-                                            Icons.upload_file,
-                                            color: yellowPrimary,
-                                            size: 24,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                'ID Card Image',
-                                                style: TextStyle(
-                                                  color: Colors.grey.shade400,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                _idCardFile?.path.split('/').last ??
-                                                    'No file selected',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Icon(
-                                          _idCardFile != null
-                                              ? Icons.check_circle
-                                              : Icons.arrow_forward_ios,
-                                          color: _idCardFile != null
-                                              ? yellowPrimary
-                                              : Colors.grey.shade600,
-                                          size: 20,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 32),
-
-                                // Register Button
-                                Container(
-                                  height: 56,
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [yellowPrimary, yellowAccent],
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: yellowPrimary.withOpacity(0.3),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: ElevatedButton(
-                                    onPressed: _register,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.transparent,
-                                      shadowColor: Colors.transparent,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      'Register',
+                                    Text(
+                                      'ID Card Image',
                                       style: TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
+                                        color: Colors.grey.shade400,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                  ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _idCardFile?.path.split('/').last ??
+                                          'No file selected',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 16),
+                              ),
+                              Icon(
+                                _idCardFile != null
+                                    ? Icons.check_circle
+                                    : Icons.arrow_forward_ios,
+                                color: _idCardFile != null
+                                    ? yellowPrimary
+                                    : Colors.grey.shade600,
+                                size: 20,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
-                                // Login Link
-                                Center(
-                                  child: TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: RichText(
-                                      text: const TextSpan(
-                                        text: 'Already have an account? ',
-                                        style: TextStyle(
-                                          color: Colors.grey,
-                                          fontSize: 14,
-                                        ),
-                                        children: [
-                                          TextSpan(
-                                            text: 'Login',
-                                            style: TextStyle(
-                                              color: yellowPrimary,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 24),
-                              ],
+                      ElevatedButton(
+                        onPressed: _register,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: yellowPrimary,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Register',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      Center(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text(
+                            'Already have an account? Login',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
                             ),
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ),
-        ],
+              ),
       ),
     );
   }

@@ -287,8 +287,9 @@ class _HomePageState extends State<HomePage> {
                                 for (final doc in snapshot.data!.docs) {
                                   final data =
                                       doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+                                  final type = (data['type'] as String?) ?? '';
                                   final isRead = (data['isRead'] as bool?) ?? false;
-                                  if (!isRead) {
+                                  if (type != 'chat' && !isRead) {
                                     unreadCount++;
                                   }
                                 }

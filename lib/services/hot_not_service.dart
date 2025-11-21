@@ -417,19 +417,29 @@ class HotNotService {
   }
   
   /// Get leaderboard (top 10 most hotted users)
-  Future<List<UserModel>> getLeaderboard() async {
+  /// If [genderFilter] is provided (e.g. 'Male' or 'Female'),
+  /// only users with that gender will be included.
+  Future<List<UserModel>> getLeaderboard({String? genderFilter}) async {
     try {
-      final snapshot = await _firestore
+      Query query = _firestore
           .collection('users')
           .where('isVerified', isEqualTo: true)
-          .where('hotCount', isGreaterThan: 0)
+          .where('hotCount', isGreaterThan: 0);
+
+      if (genderFilter != null && genderFilter.isNotEmpty) {
+        query = query.where('gender', isEqualTo: genderFilter);
+      }
+
+      final snapshot = await query
           .orderBy('hotCount', descending: true)
           .limit(10)
           .get();
-      
-      return snapshot.docs
-          .map((doc) => UserModel.fromMap({...doc.data(), 'uid': doc.id}))
-          .toList();
+
+      return snapshot.docs.map((doc) {
+        final data = Map<String, dynamic>.from(doc.data() as Map<String, dynamic>);
+        data['uid'] = doc.id;
+        return UserModel.fromMap(data);
+      }).toList();
     } catch (e) {
       throw Exception('Failed to get leaderboard: $e');
     }

@@ -44,7 +44,12 @@ class NotificationsPage extends StatelessWidget {
             );
           }
 
-          final docs = snapshot.data?.docs ?? [];
+          final allDocs = snapshot.data?.docs ?? [];
+          final docs = allDocs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+            final type = (data['type'] as String?) ?? '';
+            return type != 'chat';
+          }).toList();
 
           if (docs.isEmpty) {
             return Center(
@@ -103,6 +108,10 @@ class NotificationsPage extends StatelessWidget {
                 case 'match':
                   icon = Icons.local_fire_department;
                   iconColor = Colors.orangeAccent;
+                  break;
+                case 'hot_vote':
+                  icon = Icons.local_fire_department;
+                  iconColor = Colors.redAccent;
                   break;
                 case 'chat':
                   icon = Icons.chat_bubble_outline;

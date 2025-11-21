@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
-import '../services/post_service.dart';
 import '../services/chat_service.dart';
 import '../models/post_model.dart';
 import '../widgets/post_card.dart';
@@ -27,17 +26,14 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStateMixin {
   final AuthService _authService = AuthService();
-  final PostService _postService = PostService();
   late TabController _tabController;
   late Future<UserModel?> _userFuture;
-  late Future<List<Post>> _postsFuture;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _userFuture = _authService.getUserProfile(widget.userId);
-    _postsFuture = _postService.getUserPosts(widget.userId);
   }
 
   @override
@@ -49,7 +45,6 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   void _refreshProfile() {
     setState(() {
       _userFuture = _authService.getUserProfile(widget.userId);
-      _postsFuture = _postService.getUserPosts(widget.userId);
     });
   }
 
@@ -86,10 +81,10 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                   expandedHeight: 360,
                   floating: false,
                   pinned: true,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+                  // leading: IconButton(
+                  //   icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  //   onPressed: () => Navigator.pop(context),
+                  // ),
                   actions: [
                     if (isOwnProfile)
                       IconButton(
@@ -121,6 +116,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                       controller: _tabController,
                       indicatorColor: Colors.yellow,
                       labelColor: Colors.yellow,
+                      dividerColor: const Color.fromARGB(0, 14, 14, 14),
                       unselectedLabelColor: Colors.grey,
                       tabs: const [
                         Tab(
@@ -167,22 +163,13 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 4),
-        // Email
-        Text(
-          user.email,
-          style: GoogleFonts.poppins(
-            color: Colors.grey,
-            fontSize: 14,
-          ),
-        ),
-        if (user.rollNo != null) ...[
+        if (user.semester != null) ...[
           const SizedBox(height: 4),
           Text(
-            'Roll No: ${user.rollNo}',
+            'Semester: ${user.semester}',
             style: GoogleFonts.poppins(
               color: Colors.grey,
-              fontSize: 12,
+              fontSize: 14,
             ),
           ),
         ],
@@ -196,16 +183,38 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
             ),
           ),
         ],
-        if (user.gender != null && user.gender!.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            user.gender!,
-            style: GoogleFonts.poppins(
-              color: Colors.grey,
-              fontSize: 12,
-            ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.grey[900],
+            borderRadius: BorderRadius.circular(20),
+            // border: Border.all(
+            //   color: Colors.yellow.withOpacity(0.4),
+            //   width: 1.2,
+            // ),
           ),
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const FaIcon(
+                FontAwesomeIcons.fire,
+                color: Color.fromARGB(255, 255, 123, 0),
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${user.hotCount} hots',
+                style: GoogleFonts.poppins(
+                  color: Colors.yellow,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 16),
         // Action Buttons
         if (isOwnProfile)
@@ -357,12 +366,30 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   }
 
   Widget _buildPostsTab(UserModel user) {
-    return FutureBuilder<List<Post>>(
-      future: _postsFuture,
+    final stream = FirebaseFirestore.instance
+        .collection('posts')
+        .where('authorId', isEqualTo: user.uid)
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Post.fromMap(doc.data(), doc.id))
+            .toList());
+
+    return StreamBuilder<List<Post>>(
+      stream: stream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
             child: CircularProgressIndicator(color: Colors.yellow),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error loading posts',
+              style: GoogleFonts.poppins(color: Colors.white),
+            ),
           );
         }
 
@@ -395,8 +422,10 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           padding: const EdgeInsets.only(top: 8),
           itemCount: posts.length,
           itemBuilder: (context, index) {
+            final post = posts[index];
             return PostCard(
-              post: posts[index],
+              key: ValueKey(post.id),
+              post: post,
               currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
               onDelete: _refreshProfile,
               onComment: () {
@@ -404,7 +433,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                   context,
                   MaterialPageRoute(
                     builder: (context) => CommentsPage(
-                      postId: posts[index].id,
+                      postId: post.id,
                       currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
                       currentUserName: user.name ?? 'User',
                       currentUserImage: user.avatarUrl ?? '',
@@ -490,6 +519,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           itemBuilder: (context, index) {
             final post = posts[index];
             return PostCard(
+              key: ValueKey(post.id),
               post: post,
               currentUserId: FirebaseAuth.instance.currentUser?.uid ?? '',
               onDelete: _refreshProfile,
@@ -528,7 +558,12 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
-      color: Colors.black,
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(255, 14, 14, 14),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(16),
+        ),
+      ),
       child: _tabBar,
     );
   }

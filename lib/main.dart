@@ -4,14 +4,19 @@ import 'package:firebase_core/firebase_core.dart';
 // simport 'package:firebase_performance/firebase_performance.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_dynamic_links/firebase_dynamic_links.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/home_page.dart';
 import 'pages/pending_verification_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'pages/post_detail_page.dart';
+import 'pages/rumor_detail_page.dart';
 import 'services/fcm_service.dart';
 
 import 'firebase_options.dart';
+
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> _initializeFCMForCurrentUser() async {
   final currentUser = FirebaseAuth.instance.currentUser;
@@ -68,14 +73,76 @@ void main() async {
 
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final bool startPending;
   final bool isLoggedIn;  
   const MyApp({super.key, required this.startPending, required this.isLoggedIn});  
 
   @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    _initDynamicLinks();
+  }
+
+  Future<void> _initDynamicLinks() async {
+    try {
+      final instance = FirebaseDynamicLinks.instance;
+
+      final initialData = await instance.getInitialLink();
+      if (initialData != null) {
+        _handleDeepLink(initialData.link);
+      }
+
+      instance.onLink.listen((PendingDynamicLinkData data) {
+        _handleDeepLink(data.link);
+      }).onError((Object error) {
+        debugPrint('Dynamic link error: $error');
+      });
+    } catch (e) {
+      debugPrint('Failed to initialize dynamic links: $e');
+    }
+  }
+
+  void _handleDeepLink(Uri link) {
+    if (link.host != 'getbeezy.app') {
+      return;
+    }
+    if (link.pathSegments.isEmpty) {
+      return;
+    }
+
+    final navigator = rootNavigatorKey.currentState;
+    if (navigator == null) {
+      return;
+    }
+
+    final first = link.pathSegments.first;
+    if (first == 'post' && link.pathSegments.length >= 2) {
+      final postId = link.pathSegments[1];
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => PostDetailPage(postId: postId),
+        ),
+      );
+    } else if (first == 'rumor' && link.pathSegments.length >= 2) {
+      final rumorId = link.pathSegments[1];
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => RumorDetailPage(rumorId: rumorId),
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: rootNavigatorKey,
       title: 'BVEC ',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
@@ -95,9 +162,9 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: isLoggedIn 
+      home: widget.isLoggedIn 
           ? const HomePage()  
-          : (startPending 
+          : (widget.startPending 
               ? const PendingVerificationPage() 
               : const LoginPage()),
       routes: {

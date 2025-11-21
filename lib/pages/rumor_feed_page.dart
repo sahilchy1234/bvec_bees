@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:share_plus/share_plus.dart';
 import 'dart:async';
 import '../models/rumor_model.dart';
 import '../services/rumor_service.dart';
@@ -80,6 +81,28 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
       setState(() {
         _rumors.removeRange(100, _rumors.length);
       });
+    }
+  }
+
+  Future<void> _shareRumor(RumorModel rumor) async {
+    final rumorId = rumor.id;
+    final shareUrl = 'https://getbeezy.app/rumor/$rumorId';
+
+    try {
+      final contentPreview = rumor.content.trim();
+      final message = contentPreview.isNotEmpty
+          ? 'Check out this rumor on Beezy:\n\n$contentPreview\n\n$shareUrl'
+          : 'Check out this rumor on Beezy:\n$shareUrl';
+
+      await Share.share(
+        message,
+        subject: 'Beezy rumor',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error sharing rumor: $e')),
+      );
     }
   }
 
@@ -536,13 +559,7 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
                                   ),
                                 );
                               },
-                              onShare: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Rumor link copied to clipboard!'),
-                                  ),
-                                );
-                              },
+                              onShare: () => _shareRumor(rumor),
                             );
                           },
                         ),
