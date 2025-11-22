@@ -3,10 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/notification_service.dart';
 
-class NotificationsPage extends StatelessWidget {
+class NotificationsPage extends StatefulWidget {
   final String currentUserId;
 
   const NotificationsPage({super.key, required this.currentUserId});
+
+  @override
+  State<NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends State<NotificationsPage> {
+  @override
+  void initState() {
+    super.initState();
+    NotificationService().markAllAsRead(widget.currentUserId);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +38,7 @@ class NotificationsPage extends StatelessWidget {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: NotificationService().getUserNotifications(currentUserId),
+        stream: NotificationService().getUserNotifications(widget.currentUserId),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(

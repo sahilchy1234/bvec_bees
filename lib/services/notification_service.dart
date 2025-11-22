@@ -317,6 +317,24 @@ class NotificationService {
     }
   }
 
+  /// Mark all non-chat notifications as read for the given user
+  Future<void> markAllAsRead(String userId) async {
+    try {
+      final snapshot = await _fcmService.getNotifications(userId).first;
+      for (final doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+        final type = (data['type'] as String?) ?? '';
+        final isRead = (data['isRead'] as bool?) ?? false;
+
+        if (type != 'chat' && !isRead) {
+          await _fcmService.markNotificationAsRead(userId, doc.id);
+        }
+      }
+    } catch (e) {
+      print('Error marking all notifications as read: $e');
+    }
+  }
+
   /// Get user notifications stream
   Stream<QuerySnapshot> getUserNotifications(String userId) {
     return _fcmService.getNotifications(userId);
