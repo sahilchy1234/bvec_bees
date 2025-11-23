@@ -607,7 +607,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        Widget _buildHeartParticle({
+        Widget buildHeartParticle({
           required Alignment alignment,
           required Duration duration,
           double startYOffset = 40,
@@ -653,14 +653,14 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
                 child: IgnorePointer(
                   child: Stack(
                     children: [
-                      _buildHeartParticle(
+                      buildHeartParticle(
                         alignment: const Alignment(-0.8, 0.2),
                         duration: const Duration(milliseconds: 1100),
                         startYOffset: 50,
                         maxRise: 90,
                         size: 20,
                       ),
-                      _buildHeartParticle(
+                      buildHeartParticle(
                         alignment: const Alignment(-0.3, 0.1),
                         duration: const Duration(milliseconds: 900),
                         startYOffset: 60,
@@ -668,7 +668,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
                         size: 18,
                         color: Colors.pinkAccent,
                       ),
-                      _buildHeartParticle(
+                      buildHeartParticle(
                         alignment: const Alignment(0.3, 0.15),
                         duration: const Duration(milliseconds: 1000),
                         startYOffset: 55,
@@ -676,7 +676,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
                         size: 24,
                         color: Colors.redAccent,
                       ),
-                      _buildHeartParticle(
+                      buildHeartParticle(
                         alignment: const Alignment(0.8, 0.25),
                         duration: const Duration(milliseconds: 1200),
                         startYOffset: 65,
@@ -684,7 +684,7 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
                         size: 20,
                         color: Colors.pinkAccent,
                       ),
-                      _buildHeartParticle(
+                      buildHeartParticle(
                         alignment: const Alignment(0.0, -0.1),
                         duration: const Duration(milliseconds: 1300),
                         startYOffset: 45,
