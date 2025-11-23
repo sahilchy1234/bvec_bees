@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../services/image_cache_service.dart';
 import '../models/user_model.dart';
 import '../services/hot_not_service.dart';
 import '../services/auth_service.dart';
@@ -122,7 +123,13 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
     for (final user in users) {
       final url = user.avatarUrl;
       if (url != null && url.isNotEmpty) {
-        precacheImage(CachedNetworkImageProvider(url), context);
+        precacheImage(
+          CachedNetworkImageProvider(
+            url,
+            cacheManager: ImageCacheService.instance.imageCacheManager,
+          ),
+          context,
+        );
       }
     }
   }

@@ -7,7 +7,8 @@ class FeedCacheService {
   static const String _feedCacheKey = 'cached_feed_posts';
   static const String _userCachePrefix = 'cached_user_';
   static const String _lastFetchKey = 'last_feed_fetch';
-  static const Duration _cacheExpiry = Duration(minutes: 5);
+  // OPTIMIZATION: Increased from 5 minutes to 15 minutes to reduce reads
+  static const Duration _cacheExpiry = Duration(minutes: 15);
   static const int _maxCachedPosts = 50;
 
   static FeedCacheService? _instance;

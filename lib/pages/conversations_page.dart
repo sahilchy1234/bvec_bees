@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../services/image_cache_service.dart';
 import '../models/conversation_model.dart';
 import '../models/match_model.dart';
 import '../services/chat_service.dart';
@@ -72,7 +73,10 @@ class _ConversationsPageState extends State<ConversationsPage> {
     return CircleAvatar(
       radius: radius,
       backgroundColor: Colors.grey[900],
-      backgroundImage: CachedNetworkImageProvider(imageUrl),
+      backgroundImage: CachedNetworkImageProvider(
+        imageUrl,
+        cacheManager: ImageCacheService.instance.imageCacheManager,
+      ),
     );
   }
 

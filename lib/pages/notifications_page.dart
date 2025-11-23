@@ -13,10 +13,14 @@ class NotificationsPage extends StatefulWidget {
 }
 
 class _NotificationsPageState extends State<NotificationsPage> {
+  late Future<List<Map<String, dynamic>>> _notificationsFuture;
+
   @override
   void initState() {
     super.initState();
     NotificationService().markAllAsRead(widget.currentUserId);
+    _notificationsFuture = NotificationService()
+        .getUserNotificationsOnce(widget.currentUserId, useCache: true);
   }
 
   @override
@@ -37,57 +41,69 @@ class _NotificationsPageState extends State<NotificationsPage> {
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: NotificationService().getUserNotifications(widget.currentUserId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Colors.yellow),
-            );
-          }
+      body: RefreshIndicator(
+        color: Colors.yellow,
+        onRefresh: () async {
+          final fresh = await NotificationService().getUserNotificationsOnce(
+            widget.currentUserId,
+            useCache: false,
+          );
+          if (!mounted) return;
+          setState(() {
+            _notificationsFuture = Future.value(fresh);
+          });
+        },
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: _notificationsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.yellow),
+              );
+            }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Failed to load notifications',
-                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
-              ),
-            );
-          }
+            if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  'Failed to load notifications',
+                  style:
+                      theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                ),
+              );
+            }
 
-          final allDocs = snapshot.data?.docs ?? [];
-          final docs = allDocs.where((doc) {
-            final data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
-            final type = (data['type'] as String?) ?? '';
-            return type != 'chat';
-          }).toList();
-
-          if (docs.isEmpty) {
-            return Center(
-              child: Text(
-                'No notifications yet',
-                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
-              ),
-            );
-          }
-
-          return ListView.separated(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: docs.length,
-            separatorBuilder: (_, __) => const Divider(
-              color: Colors.white12,
-              height: 1,
-            ),
-            itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
-
+            final all = snapshot.data ?? <Map<String, dynamic>>[];
+            final docs = all.where((data) {
               final type = (data['type'] as String?) ?? '';
-              final title = (data['title'] as String?) ?? '';
-              final body = (data['body'] as String?) ?? '';
-              final senderName = (data['senderName'] as String?) ?? '';
-              final senderImage = (data['senderImage'] as String?) ?? '';
-              final ts = data['timestamp'];
+              return type != 'chat';
+            }).toList();
+
+            if (docs.isEmpty) {
+              return Center(
+                child: Text(
+                  'No notifications yet',
+                  style:
+                      theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                ),
+              );
+            }
+
+            return ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: docs.length,
+              separatorBuilder: (_, __) => const Divider(
+                color: Colors.white12,
+                height: 1,
+              ),
+              itemBuilder: (context, index) {
+                final data = docs[index];
+
+                final type = (data['type'] as String?) ?? '';
+                final title = (data['title'] as String?) ?? '';
+                final body = (data['body'] as String?) ?? '';
+                final senderName = (data['senderName'] as String?) ?? '';
+                final senderImage = (data['senderImage'] as String?) ?? '';
+                final ts = data['timestamp'];
 
               DateTime? timestamp;
               if (ts is Timestamp) {
@@ -96,12 +112,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 timestamp = ts;
               }
 
-              final timeText = timestamp != null
-                  ? DateFormat('MMM d, h:mm a').format(timestamp)
-                  : '';
+                final timeText = timestamp != null
+                    ? DateFormat('MMM d, h:mm a').format(timestamp)
+                    : '';
 
-              IconData icon;
-              Color iconColor;
+                IconData icon;
+                Color iconColor;
 
               switch (type) {
                 case 'post_like':
@@ -137,11 +153,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   iconColor = Colors.white70;
               }
 
-              return ListTile(
-                onTap: () {
-                  // Placeholder: later you can navigate to post/chat/match based on data
-                },
-                leading: Stack(
+                return ListTile(
+                  onTap: () {
+                    // Placeholder: later you can navigate to post/chat/match based on data
+                  },
+                  leading: Stack(
                   alignment: Alignment.bottomRight,
                   children: [
                     CircleAvatar(
@@ -202,11 +218,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         ),
                       ),
                   ],
-                ),
-              );
-            },
-          );
-        },
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

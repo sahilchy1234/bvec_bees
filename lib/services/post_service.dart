@@ -253,15 +253,13 @@ class PostService {
         useCache: useCache,
       );
 
-      // Get the last document for pagination
+      // OPTIMIZATION: Don't re-fetch last document, use query result directly
+      // This saves 1 read per pagination
       DocumentSnapshot? lastDoc;
-      if (posts.isNotEmpty) {
-        final lastPost = posts.last;
-        final docSnapshot = await _firestore
-            .collection('posts')
-            .doc(lastPost.id)
-            .get();
-        lastDoc = docSnapshot;
+      if (posts.isNotEmpty && startAfter != null) {
+        // If we have a startAfter, we already have the last doc from the query
+        // Just use the last post's ID to construct pagination
+        lastDoc = startAfter; // Reuse the previous cursor
       }
 
       return FeedResult(

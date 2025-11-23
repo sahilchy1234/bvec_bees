@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../services/image_cache_service.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/message_model.dart';
 import '../services/chat_service.dart';
@@ -301,7 +302,10 @@ class _ChatPageState extends State<ChatPage> {
     return CircleAvatar(
       radius: radius,
       backgroundColor: Colors.grey[900],
-      backgroundImage: CachedNetworkImageProvider(imageUrl),
+      backgroundImage: CachedNetworkImageProvider(
+        imageUrl,
+        cacheManager: ImageCacheService.instance.imageCacheManager,
+      ),
     );
   }
 
@@ -423,6 +427,7 @@ class _ChatPageState extends State<ChatPage> {
                 child: CachedNetworkImage(
                   imageUrl: imageUrl,
                   fit: BoxFit.contain,
+                  cacheManager: ImageCacheService.instance.imageCacheManager,
                   placeholder: (context, url) => const Center(
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
@@ -922,6 +927,10 @@ class _ChatPageState extends State<ChatPage> {
                                                           imageUrl:
                                                               message.imageUrl!,
                                                           fit: BoxFit.cover,
+                                                          cacheManager:
+                                                              ImageCacheService
+                                                                  .instance
+                                                                  .imageCacheManager,
                                                           placeholder:
                                                               (context, url) =>
                                                                   Container(

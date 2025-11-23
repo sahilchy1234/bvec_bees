@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:async';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/post_service.dart';
 import '../models/user_model.dart';
+import '../services/user_directory_cache_service.dart';
 
 class CreatePostPage extends StatefulWidget {
   final String userId;
@@ -40,6 +42,10 @@ class _CreatePostPageState extends State<CreatePostPage> {
   List<UserModel> _mentionSuggestions = [];
   final bool _showMentionSuggestions = false;
   String _currentMentionQuery = '';
+  Timer? _mentionDebounce;
+  List<UserModel> _mentionUserCache = [];
+  bool _mentionUsersLoaded = false;
+  bool _isLoadingMentionUsers = false;
 
   @override
   void initState() {
@@ -59,6 +65,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   void dispose() {
     _contentController.removeListener(_onTextChanged);
     _contentController.dispose();
+    _mentionDebounce?.cancel();
     _removeMentionOverlay();
     super.dispose();
   }
@@ -134,33 +141,76 @@ class _CreatePostPageState extends State<CreatePostPage> {
     
     if (atIndex >= 0) {
       final query = text.substring(atIndex + 1, cursorPos);
-      if (query.isNotEmpty) {
+      if (query.isNotEmpty && query.length >= 2) {
+        if (query == _currentMentionQuery) {
+          return;
+        }
         debugPrint('[CreatePost] Mention query: "$query"');
-        _searchUsers(query);
+        _mentionDebounce?.cancel();
+        _mentionDebounce = Timer(const Duration(milliseconds: 250), () {
+          if (!mounted) return;
+          _searchUsers(query);
+        });
       } else {
+        _mentionDebounce?.cancel();
         _removeMentionOverlay();
       }
     } else {
+      _mentionDebounce?.cancel();
       _removeMentionOverlay();
+    }
+  }
+  
+  Future<void> _ensureMentionUsersLoaded() async {
+    if (_mentionUsersLoaded || _isLoadingMentionUsers) return;
+    _isLoadingMentionUsers = true;
+    try {
+      debugPrint('[CreatePost] Loading mention user cache...');
+      // Try cached users first
+      final cached = await UserDirectoryCacheService.instance.getCachedUsers();
+      if (cached != null && cached.isNotEmpty) {
+        _mentionUserCache = cached;
+        _mentionUsersLoaded = true;
+        debugPrint('[CreatePost] Loaded ${cached.length} users from cache');
+        return;
+      }
+
+      final snapshot = await _firestore
+          .collection('users')
+          .where('isVerified', isEqualTo: true)
+          .limit(500)
+          .get();
+
+      final users = snapshot.docs.map((doc) {
+        final data = Map<String, dynamic>.from(doc.data());
+        data['uid'] = doc.id;
+        return UserModel.fromMap(data);
+      }).toList();
+
+      _mentionUserCache = users;
+      _mentionUsersLoaded = true;
+      debugPrint('[CreatePost] Loaded ${users.length} users into mention cache');
+      await UserDirectoryCacheService.instance.cacheUsers(users);
+    } catch (e) {
+      debugPrint('Error loading mention user cache: $e');
+    } finally {
+      _isLoadingMentionUsers = false;
     }
   }
   
   Future<void> _searchUsers(String query) async {
     try {
       debugPrint('[CreatePost] Searching users for "$query"');
-      final snapshot = await _firestore
-          .collection('users')
-          .where('isVerified', isEqualTo: true)
-          .limit(100)
-          .get();
-      
+      await _ensureMentionUsersLoaded();
+
+      if (!_mentionUsersLoaded || _mentionUserCache.isEmpty) {
+        debugPrint('[CreatePost] Mention cache is empty; hiding overlay');
+        _removeMentionOverlay();
+        return;
+      }
+
       final q = query.toLowerCase();
-      final users = snapshot.docs
-          .map((doc) {
-            final data = Map<String, dynamic>.from(doc.data());
-            data['uid'] = doc.id;
-            return UserModel.fromMap(data);
-          })
+      final users = _mentionUserCache
           .where((user) {
             final name = (user.name ?? '').toLowerCase();
             final roll = (user.rollNo ?? '').toLowerCase();

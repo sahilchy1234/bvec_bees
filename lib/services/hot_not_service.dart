@@ -27,18 +27,21 @@ class HotNotService {
       final now = DateTime.now();
       final cooldownTime = now.subtract(const Duration(hours: cooldownHours));
       
-      // Get all verified users
+      // OPTIMIZATION: Limit user query to reduce reads
+      // Fetch more than needed to account for filtering
       Query usersQuery = _firestore
           .collection('users')
-          .where('isVerified', isEqualTo: true);
+          .where('isVerified', isEqualTo: true)
+          .limit(feedLimit * 5); // Fetch 5x to account for filtering
       
       final usersSnapshot = await usersQuery.get();
       
-      // Get user's votes to filter out recently voted users
+      // OPTIMIZATION: Only fetch recent votes (last 2 hours) instead of all votes
       final votesSnapshot = await _firestore
           .collection('votes')
           .where('voterId', isEqualTo: currentUserId)
           .where('timestamp', isGreaterThan: cooldownTime)
+          .limit(500) // Cap votes query
           .get();
       
       final recentlyVotedIds = votesSnapshot.docs

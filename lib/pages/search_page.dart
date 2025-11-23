@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
+import '../services/user_directory_cache_service.dart';
 import 'profile_page.dart';
 
 class SearchPage extends StatefulWidget {
@@ -22,6 +23,9 @@ class _SearchPageState extends State<SearchPage> {
   List<String> _recentSearches = [];
   Timer? _debounce;
   static const int _maxRecentSearches = 8;
+  List<UserModel> _allVerifiedUsers = [];
+  bool _usersLoaded = false;
+  bool _isLoadingUsers = false;
 
   @override
   void initState() {
@@ -69,6 +73,39 @@ class _SearchPageState extends State<SearchPage> {
     });
   }
 
+  Future<void> _ensureUsersLoaded() async {
+    if (_usersLoaded || _isLoadingUsers) return;
+    _isLoadingUsers = true;
+    try {
+      // Try cached users first
+      final cached = await UserDirectoryCacheService.instance.getCachedUsers();
+      if (cached != null && cached.isNotEmpty) {
+        _allVerifiedUsers = cached;
+        _usersLoaded = true;
+        return;
+      }
+
+      // Fallback: load from Firestore once
+      final snapshot = await _firestore
+          .collection('users')
+          .where('isVerified', isEqualTo: true)
+          .get();
+
+      final users = snapshot.docs.map((doc) {
+        final data = doc.data();
+        data['uid'] = doc.id;
+        return UserModel.fromMap(data);
+      }).toList();
+
+      _allVerifiedUsers = users;
+      _usersLoaded = true;
+      // Cache for reuse across app sessions
+      await UserDirectoryCacheService.instance.cacheUsers(users);
+    } finally {
+      _isLoadingUsers = false;
+    }
+  }
+
   void _onSearchChanged(String value) {
     setState(() {});
     _debounce?.cancel();
@@ -97,16 +134,9 @@ class _SearchPageState extends State<SearchPage> {
       // Fetch verified users and filter client-side for a true case-insensitive
       // search on both name and roll number. This avoids issues with
       // capitalization and ensures all matching profiles can be found.
-      final snapshot = await _firestore
-          .collection('users')
-          .where('isVerified', isEqualTo: true)
-          .get();
+      await _ensureUsersLoaded();
 
-      final users = snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['uid'] = doc.id;
-        return UserModel.fromMap(data);
-      }).where((user) {
+      final users = _allVerifiedUsers.where((user) {
         final name = (user.name ?? '').toLowerCase();
         final roll = (user.rollNo ?? '').toLowerCase();
         final nameMatches = queryLower.length >= 3

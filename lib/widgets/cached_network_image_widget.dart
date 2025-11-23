@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
+import '../services/image_cache_service.dart';
 
 class CachedNetworkImageWidget extends StatelessWidget {
   final String imageUrl;
@@ -38,6 +39,7 @@ class CachedNetworkImageWidget extends StatelessWidget {
       height: height,
       fit: fit,
       alignment: alignment,
+      cacheManager: ImageCacheService.instance.imageCacheManager,
       placeholder: (context, url) => placeholder ?? _buildShimmerPlaceholder(),
       errorWidget: (context, url, error) => errorWidget ?? _buildErrorWidget(),
       fadeInDuration: const Duration(milliseconds: 300),
@@ -121,6 +123,7 @@ class CachedCircleAvatar extends StatelessWidget {
           width: radius * 2,
           height: radius * 2,
           fit: BoxFit.cover,
+          cacheManager: ImageCacheService.instance.imageCacheManager,
           placeholder: (context, url) => _buildShimmerAvatar(),
           errorWidget: (context, url, error) => _buildFallbackAvatar(),
         ),

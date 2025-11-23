@@ -22,8 +22,10 @@ class RumorCacheService {
   static const String _rumorsCacheKey = 'cached_rumors';
   static const String _paginationCacheKey = 'rumor_pagination_meta';
   static const String _lastFetchKey = 'last_rumor_fetch';
-  static const Duration _cacheExpiry = Duration(minutes: 10);
-  static const Duration _shortCacheExpiry = Duration(minutes: 2);
+  // OPTIMIZATION: Increased from 10 minutes to 20 minutes to reduce reads
+  static const Duration _cacheExpiry = Duration(minutes: 20);
+  // OPTIMIZATION: Increased from 2 minutes to 5 minutes for short cache
+  static const Duration _shortCacheExpiry = Duration(minutes: 5);
   static const int _maxCachedRumors = 100;
   static const int _pageSize = 20;
 

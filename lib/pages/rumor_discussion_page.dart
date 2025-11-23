@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+import 'package:flutter/gestures.dart';
 import '../models/rumor_model.dart';
 import '../models/rumor_comment_model.dart';
+import '../models/user_model.dart';
 import '../services/rumor_service.dart';
+import '../services/user_directory_cache_service.dart';
 import '../widgets/cached_network_image_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'profile_page.dart';
 
 class RumorDiscussionPage extends StatefulWidget {
   final RumorModel rumor;
@@ -26,11 +32,23 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
   late String _currentUserId;
   String? _replyingToCommentId;
   String? _replyingToAuthor;
+  
+  // Mention autocomplete
+  final LayerLink _mentionLayerLink = LayerLink();
+  final GlobalKey _commentFieldKey = GlobalKey();
+  OverlayEntry? _mentionOverlay;
+  List<UserModel> _mentionSuggestions = [];
+  String _currentMentionQuery = '';
+  Timer? _mentionDebounce;
+  List<UserModel> _mentionUserCache = [];
+  bool _mentionUsersLoaded = false;
+  bool _isLoadingMentionUsers = false;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentUserId();
+    _commentController.addListener(_onCommentTextChanged);
   }
 
   Future<void> _loadCurrentUserId() async {
@@ -44,6 +62,9 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
   void dispose() {
     _commentController.dispose();
     _commentFocusNode.dispose();
+    _commentController.removeListener(_onCommentTextChanged);
+    _mentionDebounce?.cancel();
+    _removeMentionOverlay();
     super.dispose();
   }
 
@@ -71,6 +92,250 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
       });
     } catch (e) {
       // Silently ignore UI feedback here; error could be logged if desired.
+    }
+  }
+
+  String _mentionTokenFor(UserModel user) {
+    final rawName = user.name?.trim();
+    if (rawName != null && rawName.isNotEmpty) {
+      var sanitized = rawName.replaceAll(RegExp(r'\s+'), '_');
+      sanitized = sanitized.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '');
+      if (sanitized.isNotEmpty) {
+        return '@$sanitized';
+      }
+    }
+
+    final roll = user.rollNo?.trim();
+    if (roll != null && roll.isNotEmpty) {
+      var sanitizedRoll = roll.replaceAll(RegExp(r'\s+'), '');
+      sanitizedRoll = sanitizedRoll.replaceAll(RegExp(r'[^A-Za-z0-9_]'), '');
+      if (sanitizedRoll.isNotEmpty) {
+        return '@${sanitizedRoll.toLowerCase()}';
+      }
+    }
+
+    return '@user';
+  }
+
+  void _onCommentTextChanged() {
+    final text = _commentController.text;
+    final cursorPos = _commentController.selection.baseOffset;
+
+    if (cursorPos < 0) return;
+
+    int atIndex = -1;
+    for (int i = cursorPos - 1; i >= 0; i--) {
+      if (text[i] == '@') {
+        atIndex = i;
+        break;
+      }
+      if (text[i] == ' ' || text[i] == '\n') {
+        break;
+      }
+    }
+
+    if (atIndex >= 0) {
+      final query = text.substring(atIndex + 1, cursorPos);
+      if (query.isNotEmpty && query.length >= 2) {
+        if (query == _currentMentionQuery) {
+          return;
+        }
+        _mentionDebounce?.cancel();
+        _mentionDebounce = Timer(const Duration(milliseconds: 250), () {
+          if (!mounted) return;
+          _searchUsers(query);
+        });
+      } else {
+        _mentionDebounce?.cancel();
+        _removeMentionOverlay();
+      }
+    } else {
+      _mentionDebounce?.cancel();
+      _removeMentionOverlay();
+    }
+  }
+
+  Future<void> _ensureMentionUsersLoaded() async {
+    if (_mentionUsersLoaded || _isLoadingMentionUsers) return;
+    _isLoadingMentionUsers = true;
+    try {
+      // Try cached users first
+      final cached = await UserDirectoryCacheService.instance.getCachedUsers();
+      if (cached != null && cached.isNotEmpty) {
+        _mentionUserCache = cached;
+        _mentionUsersLoaded = true;
+        return;
+      }
+
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('isVerified', isEqualTo: true)
+          .limit(500)
+          .get();
+
+      final users = snapshot.docs.map((doc) {
+        final data = Map<String, dynamic>.from(doc.data());
+        data['uid'] = doc.id;
+        return UserModel.fromMap(data);
+      }).toList();
+
+      _mentionUserCache = users;
+      _mentionUsersLoaded = true;
+      await UserDirectoryCacheService.instance.cacheUsers(users);
+    } catch (_) {
+    } finally {
+      _isLoadingMentionUsers = false;
+    }
+  }
+
+  Future<void> _searchUsers(String query) async {
+    try {
+      await _ensureMentionUsersLoaded();
+
+      if (!_mentionUsersLoaded || _mentionUserCache.isEmpty) {
+        _removeMentionOverlay();
+        return;
+      }
+
+      final q = query.toLowerCase();
+      final users = _mentionUserCache
+          .where((user) {
+            final name = (user.name ?? '').toLowerCase();
+            final roll = (user.rollNo ?? '').toLowerCase();
+            final nameMatches = name.contains(q);
+            final rollMatches = roll.contains(q);
+            return nameMatches || rollMatches;
+          })
+          .toList();
+
+      if (users.isNotEmpty) {
+        setState(() {
+          _mentionSuggestions = users;
+          _currentMentionQuery = query;
+        });
+        _showMentionOverlay();
+      } else {
+        _removeMentionOverlay();
+      }
+    } catch (_) {
+      _removeMentionOverlay();
+    }
+  }
+
+  void _showMentionOverlay() {
+    _removeMentionOverlay(clearSuggestions: false);
+    final overlay = Overlay.of(context, rootOverlay: true);
+    if (overlay == null) return;
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final overlayWidth = screenWidth - 32; // match horizontal padding
+
+    _mentionOverlay = OverlayEntry(
+      builder: (context) => Positioned(
+        left: 16,
+        right: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 72,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            width: overlayWidth,
+            constraints: const BoxConstraints(maxHeight: 220),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A1A),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.amber.withOpacity(0.3)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: _mentionSuggestions.length,
+              itemBuilder: (context, index) {
+                final user = _mentionSuggestions[index];
+                return ListTile(
+                  leading: CircleAvatar(
+                    radius: 18,
+                    backgroundImage: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                        ? NetworkImage(user.avatarUrl!)
+                        : null,
+                    backgroundColor: Colors.amber,
+                    child: user.avatarUrl == null || user.avatarUrl!.isEmpty
+                        ? Text(
+                            (user.name ?? 'U')[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  title: Text(
+                    user.name ?? 'Unknown',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _mentionTokenFor(user),
+                    style: const TextStyle(
+                      color: Colors.amber,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  onTap: () => _insertMention(user),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(_mentionOverlay!);
+  }
+
+  void _insertMention(UserModel user) {
+    final text = _commentController.text;
+    final cursorPos = _commentController.selection.baseOffset;
+
+    int atIndex = -1;
+    for (int i = cursorPos - 1; i >= 0; i--) {
+      if (text[i] == '@') {
+        atIndex = i;
+        break;
+      }
+    }
+
+    if (atIndex >= 0) {
+      final before = text.substring(0, atIndex);
+      final after = text.substring(cursorPos);
+      final mention = _mentionTokenFor(user);
+
+      _commentController.text = '$before$mention $after';
+      _commentController.selection = TextSelection.fromPosition(
+        TextPosition(offset: before.length + mention.length + 1),
+      );
+    }
+
+    _removeMentionOverlay();
+  }
+
+  void _removeMentionOverlay({bool clearSuggestions = true}) {
+    _mentionOverlay?.remove();
+    _mentionOverlay = null;
+    if (clearSuggestions) {
+      setState(() {
+        _mentionSuggestions = [];
+      });
     }
   }
 
@@ -382,35 +647,36 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1A1A1A),
-                              borderRadius: BorderRadius.circular(16),
-                              // border: Border.all(
-                              //   color: Colors.white.withOpacity(0.1),
-                              // ),
-                            ),
-                            child: TextField(
-                              controller: _commentController,
-                              focusNode: _commentFocusNode,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
+                          child: CompositedTransformTarget(
+                            link: _mentionLayerLink,
+                            child: Container(
+                              key: _commentFieldKey,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1A1A1A),
+                                borderRadius: BorderRadius.circular(16),
                               ),
-                              decoration: InputDecoration(
-                                hintText: 'Add your thoughts...',
-                                hintStyle: TextStyle(
-                                  color: Colors.grey[600],
+                              child: TextField(
+                                controller: _commentController,
+                                focusNode: _commentFocusNode,
+                                style: const TextStyle(
+                                  color: Colors.white,
                                   fontSize: 14,
                                 ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
+                                decoration: InputDecoration(
+                                  hintText: 'Add your thoughts...',
+                                  hintStyle: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
                                 ),
+                                maxLines: null,
+                                textInputAction: TextInputAction.newline,
                               ),
-                              maxLines: null,
-                              textCapitalization: TextCapitalization.sentences,
                             ),
                           ),
                         ),
@@ -455,6 +721,149 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
     );
   }
 }
+
+Widget buildRumorContentWithMentions(
+  BuildContext context,
+  String text, {
+  double fontSize = 14,
+  double height = 1.5,
+}) {
+  final spans = <InlineSpan>[];
+  final combinedPattern = RegExp(r'(#\w+|@\w+)');
+  int lastMatchEnd = 0;
+
+  for (final match in combinedPattern.allMatches(text)) {
+    if (match.start > lastMatchEnd) {
+      spans.add(TextSpan(
+        text: text.substring(lastMatchEnd, match.start),
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: fontSize,
+          height: height,
+        ),
+      ));
+    }
+
+    final matchText = match.group(0)!;
+    final isHashtag = matchText.startsWith('#');
+    final isMention = matchText.startsWith('@');
+
+    if (isHashtag) {
+      spans.add(TextSpan(
+        text: matchText,
+        style: TextStyle(
+          color: Colors.amber,
+          fontSize: fontSize,
+          height: height,
+          fontWeight: FontWeight.w600,
+        ),
+      ));
+    } else if (isMention) {
+      spans.add(WidgetSpan(
+        alignment: PlaceholderAlignment.baseline,
+        baseline: TextBaseline.alphabetic,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: InkWell(
+            onTap: () async {
+              final token = matchText.substring(1);
+              try {
+                // Prefer cached verified users to avoid extra reads
+                List<UserModel>? users =
+                    await UserDirectoryCacheService.instance.getCachedUsers();
+
+                if (users == null || users.isEmpty) {
+                  final snapshot = await FirebaseFirestore.instance
+                      .collection('users')
+                      .where('isVerified', isEqualTo: true)
+                      .limit(500)
+                      .get();
+
+                  users = snapshot.docs.map((doc) {
+                    final data = Map<String, dynamic>.from(doc.data());
+                    data['uid'] = doc.id;
+                    return UserModel.fromMap(data);
+                  }).toList();
+
+                  await UserDirectoryCacheService.instance.cacheUsers(users);
+                }
+
+                UserModel? targetUser;
+                if (users.isNotEmpty) {
+                  final lowerToken = token.toLowerCase();
+                  targetUser = users.firstWhere(
+                    (u) => (u.rollNo?.toLowerCase() == lowerToken),
+                    orElse: () {
+                      final mentionName = token.replaceAll('_', ' ').toLowerCase();
+                      return users!.firstWhere(
+                        (u) => (u.name ?? '').trim().toLowerCase() == mentionName,
+                        orElse: () => UserModel(
+                          uid: '',
+                          email: '',
+                        ),
+                      );
+                    },
+                  );
+
+                  if (targetUser.uid.isEmpty) {
+                    targetUser = null;
+                  }
+                }
+
+                if (targetUser != null && targetUser.uid.isNotEmpty) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProfilePage(userId: targetUser!.uid),
+                    ),
+                  );
+                }
+              } catch (e) {
+                debugPrint('Error finding mentioned user in rumor comment: $e');
+              }
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              child: Text(
+                matchText,
+                style: const TextStyle(
+                  color: Colors.amber,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  height: 1.4,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ),
+          ),
+        ),
+      ));
+    }
+
+    lastMatchEnd = match.end;
+  }
+
+  if (lastMatchEnd < text.length) {
+    spans.add(TextSpan(
+      text: text.substring(lastMatchEnd),
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: fontSize,
+        height: height,
+      ),
+    ));
+  }
+
+  return RichText(
+    text: TextSpan(children: spans),
+    textAlign: TextAlign.start,
+    softWrap: true,
+  );
+}
+
 
 class _CommentThread extends StatefulWidget {
   final RumorCommentModel comment;
@@ -568,14 +977,11 @@ class _CommentThreadState extends State<_CommentThread> with SingleTickerProvide
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text(
+                          buildRumorContentWithMentions(
+                            context,
                             widget.comment.content,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              height: 1.5,
-                              letterSpacing: -0.2,
-                            ),
+                            fontSize: 14,
+                            height: 1.5,
                           ),
                         ],
                       ),
@@ -894,14 +1300,11 @@ class _ReplyCommentState extends State<_ReplyComment> with SingleTickerProviderS
                       ],
                     ),
                     const SizedBox(height: 6),
-                    Text(
+                    buildRumorContentWithMentions(
+                      context,
                       widget.comment.content,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        height: 1.4,
-                        letterSpacing: -0.2,
-                      ),
+                      fontSize: 13,
+                      height: 1.4,
                     ),
                   ],
                 ),

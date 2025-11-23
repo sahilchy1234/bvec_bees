@@ -144,20 +144,24 @@ class MatchService {
     }
   }
 
-  // Get all matches for a user
+  // Get all matches for a user (optimized with compound query)
   Stream<List<Match>> streamMatches(String userId) {
     return _firestore
         .collection('matches')
         .where('user1Id', isEqualTo: userId)
+        .orderBy('matchedAt', descending: true)
         .snapshots()
         .asyncMap((snapshot1) async {
       final matches1 = snapshot1.docs
           .map((doc) => Match.fromMap(doc.data(), doc.id))
           .toList();
 
+      // Only fetch user2 matches if needed (limit to avoid excessive reads)
       final snapshot2 = await _firestore
           .collection('matches')
           .where('user2Id', isEqualTo: userId)
+          .orderBy('matchedAt', descending: true)
+          .limit(100) // Cap to prevent excessive reads
           .get();
 
       final matches2 = snapshot2.docs

@@ -8,6 +8,12 @@ class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static const uuid = Uuid();
 
+  // Generate deterministic conversation ID from two user IDs
+  String _generateConversationId(String user1Id, String user2Id) {
+    final sorted = [user1Id, user2Id]..sort();
+    return '${sorted[0]}_${sorted[1]}';
+  }
+
   // Get or create conversation between two users
   Future<String> getOrCreateConversation({
     required String user1Id,
@@ -18,21 +24,17 @@ class ChatService {
     required String user2Image,
   }) async {
     try {
-      // Check if conversation already exists
-      final existingConversations = await _firestore
-          .collection('conversations')
-          .where('participantIds', arrayContains: user1Id)
-          .get();
-
-      for (final doc in existingConversations.docs) {
-        final conversation = Conversation.fromMap(doc.data(), doc.id);
-        if (conversation.participantIds.contains(user2Id)) {
-          return conversation.id;
-        }
+      // Use deterministic ID (no query needed)
+      final conversationId = _generateConversationId(user1Id, user2Id);
+      final docRef = _firestore.collection('conversations').doc(conversationId);
+      
+      // Single document read instead of query
+      final doc = await docRef.get();
+      if (doc.exists) {
+        return conversationId;
       }
 
-      // Create new conversation
-      final conversationId = uuid.v4();
+      // Create new conversation with deterministic ID
       final conversation = Conversation(
         id: conversationId,
         participantIds: [user1Id, user2Id],
@@ -53,10 +55,7 @@ class ChatService {
         },
       );
 
-      await _firestore
-          .collection('conversations')
-          .doc(conversationId)
-          .set(conversation.toMap());
+      await docRef.set(conversation.toMap());
 
       return conversationId;
     } catch (e) {

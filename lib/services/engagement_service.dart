@@ -148,12 +148,18 @@ class EngagementService {
     }
   }
 
-  /// Batch send engagement notifications to inactive users
+  /// Batch send engagement notifications to inactive users (optimized)
   Future<void> sendBatchEngagementNotifications() async {
     try {
+      // OPTIMIZATION: Only fetch inactive users instead of all users
+      final now = DateTime.now();
+      final thirtyMinutesAgo = now.subtract(const Duration(minutes: 30));
+      
       final usersSnapshot = await _firestore
           .collection('users')
           .where('isVerified', isEqualTo: true)
+          .where('lastActiveTime', isLessThan: Timestamp.fromDate(thirtyMinutesAgo))
+          .limit(100) // Batch in chunks to avoid excessive reads
           .get();
 
       for (final userDoc in usersSnapshot.docs) {

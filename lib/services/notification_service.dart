@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'fcm_service.dart';
+import 'notification_cache_service.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -333,6 +334,37 @@ class NotificationService {
   /// Get user notifications stream
   Stream<QuerySnapshot> getUserNotifications(String userId) {
     return _fcmService.getNotifications(userId);
+  }
+
+  /// Get user notifications once, with a small disk cache to avoid
+  /// repeated reads when opening the Activity page.
+  Future<List<Map<String, dynamic>>> getUserNotificationsOnce(
+    String userId, {
+    bool useCache = true,
+  }) async {
+    if (useCache) {
+      final cached =
+          await NotificationCacheService.instance.getCachedNotifications(userId);
+      if (cached != null && cached.isNotEmpty) {
+        return cached;
+      }
+    }
+
+    final snapshot = await _fcmService.getNotifications(userId).first;
+    final notifications = snapshot.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+      return <String, dynamic>{
+        'id': doc.id,
+        ...data,
+      };
+    }).toList();
+
+    if (notifications.isNotEmpty) {
+      await NotificationCacheService.instance
+          .cacheNotifications(userId, notifications);
+    }
+
+    return notifications;
   }
 
   /// Delete notification

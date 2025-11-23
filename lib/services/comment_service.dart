@@ -151,7 +151,7 @@ class CommentService {
     }
   }
 
-  // Like a comment
+  // Like a comment (optimized with array union)
   Future<void> likeComment(String postId, String commentId, String userId) async {
     try {
       final commentRef = _firestore
@@ -160,22 +160,17 @@ class CommentService {
           .collection('comments')
           .doc(commentId);
 
-      final comment = await commentRef.get();
-      final likedBy = List<String>.from(comment['likedBy'] ?? []);
-
-      if (!likedBy.contains(userId)) {
-        likedBy.add(userId);
-        await commentRef.update({
-          'likedBy': likedBy,
-          'likes': FieldValue.increment(1),
-        });
-      }
+      // Use arrayUnion to avoid read + write pattern
+      await commentRef.update({
+        'likedBy': FieldValue.arrayUnion([userId]),
+        'likes': FieldValue.increment(1),
+      });
     } catch (e) {
       throw Exception('Failed to like comment: $e');
     }
   }
 
-  // Unlike a comment
+  // Unlike a comment (optimized with array remove)
   Future<void> unlikeComment(String postId, String commentId, String userId) async {
     try {
       final commentRef = _firestore
@@ -184,16 +179,11 @@ class CommentService {
           .collection('comments')
           .doc(commentId);
 
-      final comment = await commentRef.get();
-      final likedBy = List<String>.from(comment['likedBy'] ?? []);
-
-      if (likedBy.contains(userId)) {
-        likedBy.remove(userId);
-        await commentRef.update({
-          'likedBy': likedBy,
-          'likes': FieldValue.increment(-1),
-        });
-      }
+      // Use arrayRemove to avoid read + write pattern
+      await commentRef.update({
+        'likedBy': FieldValue.arrayRemove([userId]),
+        'likes': FieldValue.increment(-1),
+      });
     } catch (e) {
       throw Exception('Failed to unlike comment: $e');
     }
