@@ -1,23 +1,19 @@
-// Admin Panel for verifying users in Firestore
-// 1) Fill your Firebase Web config below.
-// 2) Serve this folder with any static server or open index.html directly (if CORS allows).
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
 import {
   getFirestore,
   collection,
-  query,
-  where,
   getDocs,
   doc,
   updateDoc,
+  deleteDoc,
+  Timestamp,
+  query,
+  where,
   orderBy,
   limit,
-  deleteDoc
+  deleteField,
 } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
 
-// TODO: Replace with your web app's Firebase configuration
-// You can find this in the Firebase Console (Project settings -> Your apps -> Web app)
 const firebaseConfig = {
   apiKey: 'AIzaSyB3DOZuESJkTvRCJA-bcfT8QnoMwG5pn_k',
   appId: '1:508194876863:web:8fe747255da2d77d4c850a',
@@ -31,397 +27,606 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const page = document.body.dataset.page || 'users';
+const page = document.body.dataset.page || 'home';
 
 const dom = {
-  pendingList: document.getElementById('pending-list'),
-  verifiedList: document.getElementById('verified-list'),
   refreshBtn: document.getElementById('refreshBtn'),
-  pendingSearch: document.getElementById('pending-search'),
-  verifiedSearch: document.getElementById('verified-search'),
-  pendingLoading: document.getElementById('pending-loading'),
-  verifiedLoading: document.getElementById('verified-loading'),
-  postsList: document.getElementById('posts-list'),
-  rumorsList: document.getElementById('rumors-list'),
-  postsSearch: document.getElementById('posts-search'),
-  rumorsSearch: document.getElementById('rumors-search'),
-  postsLoading: document.getElementById('posts-loading'),
-  rumorsLoading: document.getElementById('rumors-loading'),
+  stats: {
+    totalUsers: document.getElementById('stat-total-users'),
+    newUsers: document.getElementById('stat-new-users'),
+    pendingUsers: document.getElementById('stat-pending-users'),
+    postsToday: document.getElementById('stat-posts-today'),
+    rumorsToday: document.getElementById('stat-rumors-today'),
+    dailyLog: document.getElementById('daily-log'),
+  },
+  users: {
+    search: document.getElementById('users-search'),
+    list: document.getElementById('users-list'),
+    loading: document.getElementById('users-loading'),
+  },
+  verify: {
+    search: document.getElementById('verify-search'),
+    list: document.getElementById('verify-list'),
+    loading: document.getElementById('verify-loading'),
+  },
+  posts: {
+    search: document.getElementById('posts-search'),
+    list: document.getElementById('posts-list'),
+    loading: document.getElementById('posts-loading'),
+  },
+  rumors: {
+    search: document.getElementById('rumors-search'),
+    list: document.getElementById('rumors-list'),
+    loading: document.getElementById('rumors-loading'),
+  },
 };
 
 const state = {
-  pendingUsers: [],
-  verifiedUsers: [],
+  users: [],
   posts: [],
   rumors: [],
 };
 
-const isUsersPage = page === 'users';
-const isPostsPage = page === 'posts';
-const isRumorsPage = page === 'rumors';
+const USERS_LIMIT = 500;
+const POSTS_LIMIT = 200;
+const RUMORS_LIMIT = 200;
 
-function userCard(user, verified) {
-  const div = document.createElement('div');
-  div.className = 'card';
+function toDate(value) {
+  if (!value) return null;
+  if (value instanceof Timestamp) {
+    return value.toDate();
+  }
+  if (typeof value === 'object' && typeof value.seconds === 'number') {
+    return new Date(value.seconds * 1000);
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
 
-  const avatar = user.avatarUrl || '';
-  const name = user.name || 'Unknown';
-  const roll = user.rollNo || '-';
-  const branch = user.branch || '-';
-  const semester = user.semester || '-';
-  const gender = user.gender || '-';
-  const email = user.email || '-';
-  const idCard = user.idCardUrl || '';
+function formatDate(date) {
+  if (!date) return '—';
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
-  div.innerHTML = `
+function formatDateTime(date) {
+  if (!date) return '—';
+  return date.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function toggleLoading(el, show) {
+  if (!el) return;
+  el.style.display = show ? 'block' : 'none';
+}
+
+async function fetchUsers(limitCount = USERS_LIMIT) {
+  const qUsers = query(collection(db, 'users'), limit(limitCount));
+  const snapshot = await getDocs(qUsers);
+  state.users = snapshot.docs.map((docSnap) => {
+    const data = docSnap.data() || {};
+    return {
+      id: docSnap.id,
+      name: data.name || 'Unnamed User',
+      rollNo: data.rollNo || '',
+      semester: data.semester || '',
+      branch: data.branch || '',
+      email: data.email || '',
+      avatarUrl: data.avatarUrl || '',
+      isVerified: Boolean(data.isVerified),
+      isBlocked: Boolean(data.isBlocked),
+      blockNote: data.blockNote || '',
+      suspendedUntil: toDate(data.suspendedUntil),
+      suspensionNote: data.suspensionNote || '',
+      createdAt: toDate(data.createdAt || data.created_at || data.timestamp),
+    };
+  });
+  return state.users;
+}
+
+async function fetchPosts(limitCount = POSTS_LIMIT) {
+  try {
+    const qPosts = query(collection(db, 'posts'), orderBy('timestamp', 'desc'), limit(limitCount));
+    const snapshot = await getDocs(qPosts);
+    state.posts = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data() || {};
+      return {
+        id: docSnap.id,
+        authorName: data.authorName || 'Unknown',
+        content: data.content || '',
+        hashtags: Array.isArray(data.hashtags) ? data.hashtags : [],
+        timestamp: toDate(data.timestamp),
+        likes: data.likes || 0,
+        comments: data.comments || 0,
+        shares: data.shares || 0,
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+    const fallback = await getDocs(query(collection(db, 'posts'), limit(limitCount)));
+    state.posts = fallback.docs.map((docSnap) => {
+      const data = docSnap.data() || {};
+      return {
+        id: docSnap.id,
+        authorName: data.authorName || 'Unknown',
+        content: data.content || '',
+        hashtags: Array.isArray(data.hashtags) ? data.hashtags : [],
+        timestamp: toDate(data.timestamp),
+        likes: data.likes || 0,
+        comments: data.comments || 0,
+        shares: data.shares || 0,
+      };
+    });
+  }
+  return state.posts;
+}
+
+async function fetchRumors(limitCount = RUMORS_LIMIT) {
+  try {
+    const qRumors = query(collection(db, 'rumors'), orderBy('timestamp', 'desc'), limit(limitCount));
+    const snapshot = await getDocs(qRumors);
+    state.rumors = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data() || {};
+      return {
+        id: docSnap.id,
+        content: data.content || '',
+        timestamp: toDate(data.timestamp),
+        yesVotes: data.yesVotes || 0,
+        noVotes: data.noVotes || 0,
+        commentCount: data.commentCount || 0,
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching rumors:', error);
+    const fallback = await getDocs(query(collection(db, 'rumors'), limit(limitCount)));
+    state.rumors = fallback.docs.map((docSnap) => {
+      const data = docSnap.data() || {};
+      return {
+        id: docSnap.id,
+        content: data.content || '',
+        timestamp: toDate(data.timestamp),
+        yesVotes: data.yesVotes || 0,
+        noVotes: data.noVotes || 0,
+        commentCount: data.commentCount || 0,
+      };
+    });
+  }
+  return state.rumors;
+}
+
+function renderDailyLog(entries) {
+  if (!dom.stats.dailyLog) return;
+  if (!entries.length) {
+    dom.stats.dailyLog.innerHTML = '<p class="muted">No activity recorded today.</p>';
+    return;
+  }
+  dom.stats.dailyLog.innerHTML = entries
+    .map((entry) => `
+      <div class="daily-log__row">
+        <span>${entry.label}</span>
+        <strong>${entry.value}</strong>
+      </div>
+    `)
+    .join('');
+}
+
+function updateHomeStats({ totalUsers, newUsers, pendingUsers, postsToday, rumorsToday }) {
+  if (dom.stats.totalUsers) dom.stats.totalUsers.textContent = totalUsers.toString();
+  if (dom.stats.newUsers) dom.stats.newUsers.textContent = newUsers.toString();
+  if (dom.stats.pendingUsers) dom.stats.pendingUsers.textContent = pendingUsers.toString();
+  if (dom.stats.postsToday) dom.stats.postsToday.textContent = postsToday.toString();
+  if (dom.stats.rumorsToday) dom.stats.rumorsToday.textContent = rumorsToday.toString();
+}
+
+function userMatchesSearch(user, term) {
+  if (!term) return true;
+  const safeTerm = term.toLowerCase();
+  return (
+    (user.name && user.name.toLowerCase().includes(safeTerm)) ||
+    (user.email && user.email.toLowerCase().includes(safeTerm)) ||
+    (user.rollNo && user.rollNo.toLowerCase().includes(safeTerm))
+  );
+}
+
+function buildUserCard(user, mode = 'users') {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const suspendedActive = user.suspendedUntil && user.suspendedUntil > new Date();
+  const statusBadges = [];
+  if (!user.isVerified) statusBadges.push('<span class="pill pill-warning">Pending Verification</span>');
+  if (user.isBlocked) statusBadges.push('<span class="pill pill-danger">Blocked</span>');
+  if (suspendedActive) statusBadges.push(`<span class="pill">Suspended until ${formatDate(user.suspendedUntil)}</span>`);
+
+  card.innerHTML = `
     <div class="card-content">
       <div class="card-header">
-        ${avatar ? 
-          `<img class="card-avatar" src="${avatar}" alt="avatar" />` : 
-          `<div class="default-avatar">${name.charAt(0)}</div>`}
+        ${user.avatarUrl
+          ? `<img class="card-avatar" src="${user.avatarUrl}" alt="avatar" />`
+          : `<div class="default-avatar">${(user.name || '?').charAt(0).toUpperCase()}</div>`}
         <div>
-          <div class="card-title">${name}</div>
-          <div class="card-subtitle">Roll: ${roll}</div>
+          <div class="card-title">${user.name}</div>
+          <div class="card-subtitle">Roll: ${user.rollNo || '—'}</div>
         </div>
-        <span class="card-badge ${verified ? 'badge-verified' : 'badge-pending'}">
-          ${verified ? 'Verified' : 'Pending'}
-        </span>
       </div>
-
+      <div class="status-line">${statusBadges.join('')}</div>
       <div class="card-details">
-        <strong>Branch:</strong> <span>${branch}</span>
-        <strong>Semester:</strong> <span>${semester}</span>
-        <strong>Gender:</strong> <span>${gender}</span>
-        <strong>Email:</strong> <span>${email}</span>
-        ${idCard ? `<strong>ID Card:</strong> <a href="${idCard}" target="_blank">View</a>` : ''}
+        <strong>Semester:</strong><span>${user.semester || '—'}</span>
+        <strong>Branch:</strong><span>${user.branch || '—'}</span>
+        <strong>Email:</strong><span>${user.email || '—'}</span>
+        <strong>Joined:</strong><span>${formatDate(user.createdAt)}</span>
+        ${user.suspensionNote ? `<strong>Suspension note:</strong><span>${user.suspensionNote}</span>` : ''}
+        ${user.isBlocked && user.blockNote ? `<strong>Block note:</strong><span>${user.blockNote}</span>` : ''}
       </div>
-
       <div class="card-actions"></div>
     </div>
   `;
 
-  const actions = div.querySelector('.card-actions');
-  if (!verified) {
-    const verifyBtn = document.createElement('button');
-    verifyBtn.textContent = 'Verify';
-    verifyBtn.onclick = async () => {
-      if (!confirm(`Are you sure you want to verify ${name}?`)) return;
-      verifyBtn.disabled = true;
-      try {
-        await updateDoc(doc(db, 'users', user.uid), { isVerified: true });
-        await loadUsers();
-      } catch (e) {
-        console.error(e);
-        verifyBtn.disabled = false;
-        alert('Failed to verify: ' + e);
-      }
-    };
-    actions.appendChild(verifyBtn);
-  } else {
-    const markPending = document.createElement('button');
-    markPending.className = 'secondary';
-    markPending.textContent = 'Mark Pending';
-    markPending.onclick = async () => {
-      if (!confirm(`Are you sure you want to mark ${name} as pending?`)) return;
-      markPending.disabled = true;
-      try {
-        await updateDoc(doc(db, 'users', user.uid), { isVerified: false });
-        await loadUsers();
-      } catch (e) {
-        console.error(e);
-        markPending.disabled = false;
-        alert('Failed to update: ' + e);
-      }
-    };
-    actions.appendChild(markPending);
+  const actions = card.querySelector('.card-actions');
+  if (mode === 'users') {
+    const suspendBtn = document.createElement('button');
+    suspendBtn.className = 'secondary';
+    suspendBtn.textContent = suspendedActive ? 'Update Suspension' : 'Suspend User';
+    suspendBtn.onclick = () => handleSuspendUser(user);
+    actions.appendChild(suspendBtn);
+
+    const liftBtn = document.createElement('button');
+    liftBtn.className = 'secondary';
+    liftBtn.textContent = suspendedActive ? 'Lift Suspension' : 'Clear Suspension';
+    liftBtn.disabled = !suspendedActive;
+    liftBtn.onclick = () => handleLiftSuspension(user);
+    actions.appendChild(liftBtn);
+
+    const blockBtn = document.createElement('button');
+    blockBtn.className = user.isBlocked ? '' : 'danger';
+    blockBtn.textContent = user.isBlocked ? 'Unblock User' : 'Block User';
+    blockBtn.onclick = () => handleToggleBlock(user);
+    actions.appendChild(blockBtn);
+  } else if (mode === 'verification') {
+    const approveBtn = document.createElement('button');
+    approveBtn.textContent = 'Verify User';
+    approveBtn.onclick = () => handleVerifyUser(user);
+    actions.appendChild(approveBtn);
+
+    const rejectBtn = document.createElement('button');
+    rejectBtn.className = 'danger';
+    rejectBtn.textContent = 'Reject & Block';
+    rejectBtn.onclick = () => handleRejectUser(user);
+    actions.appendChild(rejectBtn);
   }
 
-  return div;
+  return card;
 }
 
-// Filter users based on search term
-function filterUsers(users, term) {
-  if (!term) return users;
-  term = term.toLowerCase();
-  return users.filter(user => 
-    (user.name && user.name.toLowerCase().includes(term)) ||
-    (user.rollNo && user.rollNo.toLowerCase().includes(term)) ||
-    (user.email && user.email.toLowerCase().includes(term))
+function handleSuspendUser(user) {
+  const defaultDays = user.suspendedUntil
+    ? Math.max(1, Math.ceil((user.suspendedUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 3;
+  const daysInput = prompt('Suspend user for how many days?', String(defaultDays));
+  if (daysInput === null) return;
+  const days = Number.parseInt(daysInput, 10);
+  if (Number.isNaN(days) || days <= 0) {
+    alert('Please enter a valid number of days.');
+    return;
+  }
+  const noteInput = prompt(
+    'Provide a suspension note (shown to the user).',
+    user.suspensionNote || ''
   );
+  if (noteInput === null) return;
+  const note = noteInput.trim();
+  if (!note) {
+    alert('Suspension note cannot be empty.');
+    return;
+  }
+  const until = new Date();
+  until.setDate(until.getDate() + days);
+  updateDoc(doc(db, 'users', user.id), {
+    suspendedUntil: Timestamp.fromDate(until),
+    suspensionNote: note,
+    suspensionSetAt: Timestamp.now(),
+  })
+    .then(refreshCurrentPage)
+    .catch((error) => alert(`Failed to suspend user: ${error.message}`));
 }
 
-// Update displayed users based on search
-function updateDisplayedUsers() {
-  if (!isUsersPage || !dom.pendingList || !dom.verifiedList) return;
-  const pendingTerm = dom.pendingSearch ? dom.pendingSearch.value : '';
-  const verifiedTerm = dom.verifiedSearch ? dom.verifiedSearch.value : '';
-  dom.pendingList.innerHTML = '';
-  dom.verifiedList.innerHTML = '';
-  const filteredPending = filterUsers(state.pendingUsers, pendingTerm);
-  const filteredVerified = filterUsers(state.verifiedUsers, verifiedTerm);
-
-  filteredPending.forEach(user => {
-    dom.pendingList.appendChild(userCard(user, false));
-  });
-
-  filteredVerified.forEach(user => {
-    dom.verifiedList.appendChild(userCard(user, true));
-  });
+function handleLiftSuspension(user) {
+  updateDoc(doc(db, 'users', user.id), {
+    suspendedUntil: deleteField(),
+    suspensionNote: deleteField(),
+    suspensionSetAt: deleteField(),
+  })
+    .then(refreshCurrentPage)
+    .catch((error) => alert(`Failed to clear suspension: ${error.message}`));
 }
 
-function postCard(post) {
-  const div = document.createElement('div');
-  div.className = 'card';
+function handleToggleBlock(user) {
+  if (user.isBlocked) {
+    return handleUnblockUser(user);
+  }
+  return handleBlockUser(user);
+}
 
-  const author = post.authorName || 'Unknown';
-  const content = post.content || '';
-  const preview = content.length > 160 ? content.slice(0, 160) + '…' : content;
-  const hashtags = Array.isArray(post.hashtags) ? post.hashtags : [];
-  const likes = post.likes || 0;
-  const comments = post.comments || 0;
-  const shares = post.shares || 0;
+function handleVerifyUser(user) {
+  updateDoc(doc(db, 'users', user.id), { isVerified: true, isBlocked: false })
+    .then(refreshCurrentPage)
+    .catch((error) => alert(`Failed to verify user: ${error.message}`));
+}
 
-  let timestampText = '';
-  const ts = post.timestamp;
-  if (ts && typeof ts.toDate === 'function') {
-    const d = ts.toDate();
-    timestampText = d.toLocaleString();
+function handleRejectUser(user) {
+  if (!confirm('Block this user and mark as pending?')) return;
+  updateDoc(doc(db, 'users', user.id), {
+    isVerified: false,
+    isBlocked: true,
+    blockNote: 'Rejected during verification',
+  })
+    .then(refreshCurrentPage)
+    .catch((error) => alert(`Failed to reject user: ${error.message}`));
+}
+
+function handleBlockUser(user) {
+  const noteInput = prompt(
+    `Block ${user.name || 'user'}? Enter an internal admin note (not shown to the user).`,
+    user.blockNote || ''
+  );
+  if (noteInput === null) return;
+  const note = noteInput.trim();
+  if (!note) {
+    alert('Block note cannot be empty.');
+    return;
+  }
+  updateDoc(doc(db, 'users', user.id), { isBlocked: true, blockNote: note })
+    .then(refreshCurrentPage)
+    .catch((error) => alert(`Failed to block user: ${error.message}`));
+}
+
+function handleUnblockUser(user) {
+  if (!confirm(`Unblock ${user.name || 'user'} and allow them to log in again?`)) return;
+  updateDoc(doc(db, 'users', user.id), { isBlocked: false, blockNote: deleteField() })
+    .then(refreshCurrentPage)
+    .catch((error) => alert(`Failed to unblock user: ${error.message}`));
+}
+
+function renderUserLists() {
+  if (dom.users.list) {
+    const term = dom.users.search ? dom.users.search.value.trim().toLowerCase() : '';
+    const filtered = state.users.filter((user) => userMatchesSearch(user, term));
+    dom.users.list.innerHTML = '';
+    if (!filtered.length) {
+      dom.users.list.innerHTML = '<p class="muted">No users found.</p>';
+    } else {
+      filtered.forEach((user) => dom.users.list.appendChild(buildUserCard(user, 'users')));
+    }
   }
 
-  div.innerHTML = `
-  <div class="card-content">
-    <div class="card-header">
-      <div class="default-avatar">${author.charAt(0).toUpperCase()}</div>
-      <div>
-        <div class="card-title">${author}</div>
-        <div class="card-subtitle">${timestampText || 'Post'}</div>
+  if (dom.verify.list) {
+    const term = dom.verify.search ? dom.verify.search.value.trim().toLowerCase() : '';
+    const filtered = state.users
+      .filter((user) => !user.isVerified)
+      .filter((user) => userMatchesSearch(user, term));
+    dom.verify.list.innerHTML = '';
+    if (!filtered.length) {
+      dom.verify.list.innerHTML = '<p class="muted">No pending verifications.</p>';
+    } else {
+      filtered.forEach((user) => dom.verify.list.appendChild(buildUserCard(user, 'verification')));
+    }
+  }
+}
+
+function buildPostCard(post) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="card-content">
+      <div class="card-header">
+        <div class="default-avatar">${post.authorName.charAt(0).toUpperCase()}</div>
+        <div>
+          <div class="card-title">${post.authorName}</div>
+          <div class="card-subtitle">${formatDateTime(post.timestamp)}</div>
+        </div>
+      </div>
+      <div class="card-details" style="margin-bottom:12px;">
+        <strong>Content:</strong><span>${post.content ? post.content.slice(0, 180) : '—'}</span>
+        <strong>Stats:</strong><span>👍 ${post.likes} · 💬 ${post.comments} · ↗︎ ${post.shares}</span>
+        ${post.hashtags.length ? `<strong>Hashtags:</strong><span>#${post.hashtags.join(' #')}</span>` : ''}
+        <strong>ID:</strong><span>${post.id}</span>
+      </div>
+      <div class="card-actions">
+        <button class="danger">Delete Post</button>
       </div>
     </div>
-
-    <div class="card-details" style="margin-bottom: 12px;">
-      <strong>Content:</strong>
-      <span>${preview || '-'}</span>
-      <strong>Stats:</strong>
-      <span>👍 ${likes} · 💬 ${comments} · ↗︎ ${shares}</span>
-      ${hashtags.length ? `<strong>Hashtags:</strong><span>${hashtags.map(h => '#' + h).join(' ')}</span>` : ''}
-      <strong>ID:</strong>
-      <span>${post.id}</span>
-    </div>
-
-    <div class="card-actions">
-      <button class="danger delete-post-btn">Delete post</button>
-    </div>
-  </div>
-`;
-
-  const deleteBtn = div.querySelector('.delete-post-btn');
-  deleteBtn.onclick = async () => {
-    if (!confirm('Delete this post permanently?')) return;
-    deleteBtn.disabled = true;
-    try {
-      await deleteDoc(doc(db, 'posts', post.id));
-      await loadPosts();
-    } catch (e) {
-      console.error(e);
-      deleteBtn.disabled = false;
-      alert('Failed to delete post: ' + e);
-    }
-  };
-
-  return div;
+  `;
+  card.querySelector('button').onclick = () => handleDeletePost(post.id);
+  return card;
 }
 
-function rumorCard(rumor) {
-  const div = document.createElement('div');
-  div.className = 'card';
-
-  const content = rumor.content || '';
-  const preview = content.length > 160 ? content.slice(0, 160) + '…' : content;
-  const yesVotes = rumor.yesVotes || 0;
-  const noVotes = rumor.noVotes || 0;
-  const commentCount = rumor.commentCount || 0;
-  const credibilityScore = typeof rumor.credibilityScore === 'number' ? rumor.credibilityScore : 0.5;
-
-  let timestampText = '';
-  const ts = rumor.timestamp;
-  if (ts && typeof ts.toDate === 'function') {
-    const d = ts.toDate();
-    timestampText = d.toLocaleString();
-  }
-
-  div.innerHTML = `
-  <div class="card-content">
-    <div class="card-header">
-      <div class="default-avatar">R</div>
-      <div>
-        <div class="card-title">Rumor</div>
-        <div class="card-subtitle">${timestampText || 'Rumor'}</div>
+function buildRumorCard(rumor) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="card-content">
+      <div class="card-header">
+        <div class="default-avatar">R</div>
+        <div>
+          <div class="card-title">Rumor</div>
+          <div class="card-subtitle">${formatDateTime(rumor.timestamp)}</div>
+        </div>
       </div>
-      <span class="card-badge badge-pending">${(credibilityScore * 100).toFixed(0)}% score</span>
+      <div class="card-details" style="margin-bottom:12px;">
+        <strong>Content:</strong><span>${rumor.content ? rumor.content.slice(0, 180) : '—'}</span>
+        <strong>Stats:</strong><span>✅ ${rumor.yesVotes} · ❌ ${rumor.noVotes} · 💬 ${rumor.commentCount}</span>
+        <strong>ID:</strong><span>${rumor.id}</span>
+      </div>
+      <div class="card-actions">
+        <button class="danger">Delete Rumor</button>
+      </div>
     </div>
-
-    <div class="card-details" style="margin-bottom: 12px;">
-      <strong>Content:</strong>
-      <span>${preview || '-'}</span>
-      <strong>Stats:</strong>
-      <span>✅ ${yesVotes} · ❌ ${noVotes} · 💬 ${commentCount}</span>
-      <strong>ID:</strong>
-      <span>${rumor.id}</span>
-    </div>
-
-    <div class="card-actions">
-      <button class="danger delete-rumor-btn">Delete rumor</button>
-    </div>
-  </div>
-`;
-
-  const deleteBtn = div.querySelector('.delete-rumor-btn');
-  deleteBtn.onclick = async () => {
-    if (!confirm('Delete this rumor permanently?')) return;
-    deleteBtn.disabled = true;
-    try {
-      await deleteDoc(doc(db, 'rumors', rumor.id));
-      await loadRumors();
-    } catch (e) {
-      console.error(e);
-      deleteBtn.disabled = false;
-      alert('Failed to delete rumor: ' + e);
-    }
-  };
-
-  return div;
+  `;
+  card.querySelector('button').onclick = () => handleDeleteRumor(rumor.id);
+  return card;
 }
 
-function filterPosts(posts, term) {
-  if (!term) return posts;
-  const t = term.toLowerCase();
-  return posts.filter(post =>
-    (post.authorName && post.authorName.toLowerCase().includes(t)) ||
-    (post.content && post.content.toLowerCase().includes(t)) ||
-    (Array.isArray(post.hashtags) && post.hashtags.join(' ').toLowerCase().includes(t))
-  );
-}
-
-function filterRumors(rumors, term) {
-  if (!term) return rumors;
-  const t = term.toLowerCase();
-  return rumors.filter(rumor =>
-    (rumor.content && rumor.content.toLowerCase().includes(t)) ||
-    (typeof rumor.id === 'string' && rumor.id.toLowerCase().includes(t))
-  );
-}
-
-function updateDisplayedPosts() {
-  if (!isPostsPage || !dom.postsList) return;
-  const term = dom.postsSearch ? dom.postsSearch.value : '';
-  dom.postsList.innerHTML = '';
-  const filtered = filterPosts(state.posts, term);
-  filtered.forEach(post => {
-    dom.postsList.appendChild(postCard(post));
+function renderPosts() {
+  if (!dom.posts.list) return;
+  const term = dom.posts.search ? dom.posts.search.value.trim().toLowerCase() : '';
+  const filtered = state.posts.filter((post) => {
+    if (!term) return true;
+    return (
+      post.authorName.toLowerCase().includes(term) ||
+      post.content.toLowerCase().includes(term) ||
+      post.hashtags.join(' ').toLowerCase().includes(term)
+    );
   });
+  dom.posts.list.innerHTML = '';
+  if (!filtered.length) {
+    dom.posts.list.innerHTML = '<p class="muted">No posts match your search.</p>';
+    return;
+  }
+  filtered.forEach((post) => dom.posts.list.appendChild(buildPostCard(post)));
 }
 
-function updateDisplayedRumors() {
-  if (!isRumorsPage || !dom.rumorsList) return;
-  const term = dom.rumorsSearch ? dom.rumorsSearch.value : '';
-  dom.rumorsList.innerHTML = '';
-  const filtered = filterRumors(state.rumors, term);
-  filtered.forEach(rumor => {
-    dom.rumorsList.appendChild(rumorCard(rumor));
+function renderRumors() {
+  if (!dom.rumors.list) return;
+  const term = dom.rumors.search ? dom.rumors.search.value.trim().toLowerCase() : '';
+  const filtered = state.rumors.filter((rumor) => {
+    if (!term) return true;
+    return rumor.content.toLowerCase().includes(term) || rumor.id.toLowerCase().includes(term);
   });
+  dom.rumors.list.innerHTML = '';
+  if (!filtered.length) {
+    dom.rumors.list.innerHTML = '<p class="muted">No rumors match your search.</p>';
+    return;
+  }
+  filtered.forEach((rumor) => dom.rumors.list.appendChild(buildRumorCard(rumor)));
 }
 
-async function loadPosts() {
-  if (!dom.postsLoading || !dom.postsList) return;
-  dom.postsLoading.style.display = 'block';
-  dom.postsList.innerHTML = '';
-  try {
-    const qPosts = query(collection(db, 'posts'), orderBy('timestamp', 'desc'), limit(100));
-    const snapPosts = await getDocs(qPosts);
-    state.posts = snapPosts.docs.map(docSnap => ({ ...docSnap.data(), id: docSnap.id }));
-    updateDisplayedPosts();
-  } catch (error) {
-    console.error('Error loading posts:', error);
-    alert('Failed to load posts: ' + error.message);
-  } finally {
-    dom.postsLoading.style.display = 'none';
+function handleDeletePost(postId) {
+  if (!confirm('Delete this post permanently?')) return;
+  deleteDoc(doc(db, 'posts', postId))
+    .then(() => fetchPosts().then(renderPosts))
+    .catch((error) => alert(`Failed to delete post: ${error.message}`));
+}
+
+function handleDeleteRumor(rumorId) {
+  if (!confirm('Delete this rumor permanently?')) return;
+  deleteDoc(doc(db, 'rumors', rumorId))
+    .then(() => fetchRumors().then(renderRumors))
+    .catch((error) => alert(`Failed to delete rumor: ${error.message}`));
+}
+
+function refreshCurrentPage() {
+  switch (page) {
+    case 'users':
+      return fetchUsers().then(() => renderUserLists());
+    case 'verifications':
+      return fetchUsers().then(() => renderUserLists());
+    case 'posts':
+      return fetchPosts().then(renderPosts);
+    case 'rumors':
+      return fetchRumors().then(renderRumors);
+    case 'home':
+    default:
+      return loadHomePage();
   }
 }
 
-async function loadRumors() {
-  if (!dom.rumorsLoading || !dom.rumorsList) return;
-  dom.rumorsLoading.style.display = 'block';
-  dom.rumorsList.innerHTML = '';
+async function loadHomePage() {
+  toggleLoading(dom.users.loading, true);
   try {
-    const qRumors = query(collection(db, 'rumors'), orderBy('timestamp', 'desc'), limit(100));
-    const snapRumors = await getDocs(qRumors);
-    state.rumors = snapRumors.docs.map(docSnap => ({ ...docSnap.data(), id: docSnap.id }));
-    updateDisplayedRumors();
+    const [users, posts, rumors] = await Promise.all([
+      fetchUsers(),
+      fetchPosts(),
+      fetchRumors(),
+    ]);
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const stats = {
+      totalUsers: users.length,
+      newUsers: users.filter((u) => u.createdAt && u.createdAt >= startOfDay).length,
+      pendingUsers: users.filter((u) => !u.isVerified).length,
+      postsToday: posts.filter((p) => p.timestamp && p.timestamp >= startOfDay).length,
+      rumorsToday: rumors.filter((r) => r.timestamp && r.timestamp >= startOfDay).length,
+    };
+    updateHomeStats(stats);
+    renderDailyLog([
+      { label: 'New users today', value: stats.newUsers },
+      { label: 'Pending verifications', value: stats.pendingUsers },
+      { label: 'Posts created today', value: stats.postsToday },
+      { label: 'Rumors submitted today', value: stats.rumorsToday },
+    ]);
   } catch (error) {
-    console.error('Error loading rumors:', error);
-    alert('Failed to load rumors: ' + error.message);
+    alert(`Failed to load dashboard: ${error.message}`);
   } finally {
-    dom.rumorsLoading.style.display = 'none';
-  }
-}
-
-async function loadUsers() {
-  if (!dom.pendingLoading || !dom.verifiedLoading) return;
-  dom.pendingLoading.style.display = 'block';
-  dom.verifiedLoading.style.display = 'block';
-  dom.pendingList.innerHTML = '';
-  dom.verifiedList.innerHTML = '';
-  
-  try {
-    // Pending users
-    const qPending = query(collection(db, 'users'), where('isVerified', '==', false));
-    const snapPending = await getDocs(qPending);
-    state.pendingUsers = snapPending.docs.map(docSnap => ({ ...docSnap.data(), uid: docSnap.id }));
-    
-    // Verified users
-    const qVerified = query(collection(db, 'users'), where('isVerified', '==', true));
-    const snapVerified = await getDocs(qVerified);
-    state.verifiedUsers = snapVerified.docs.map(docSnap => ({ ...docSnap.data(), uid: docSnap.id }));
-    
-    updateDisplayedUsers();
-  } catch (error) {
-    console.error("Error loading data:", error);
-    alert("Failed to load data: " + error.message);
-  } finally {
-    dom.pendingLoading.style.display = 'none';
-    dom.verifiedLoading.style.display = 'none';
+    toggleLoading(dom.users.loading, false);
   }
 }
 
 function setupUsersPage() {
-  dom.refreshBtn?.addEventListener('click', () => {
-    loadUsers().catch(console.error);
-  });
-  dom.pendingSearch?.addEventListener('input', updateDisplayedUsers);
-  dom.verifiedSearch?.addEventListener('input', updateDisplayedUsers);
-  loadUsers().catch(console.error);
+  toggleLoading(dom.users.loading, true);
+  fetchUsers()
+    .then(() => {
+      renderUserLists();
+      dom.users.search?.addEventListener('input', renderUserLists);
+      dom.refreshBtn?.addEventListener('click', refreshCurrentPage);
+    })
+    .catch((error) => alert(`Failed to load users: ${error.message}`))
+    .finally(() => toggleLoading(dom.users.loading, false));
+}
+
+function setupVerificationsPage() {
+  toggleLoading(dom.verify.loading, true);
+  fetchUsers()
+    .then(() => {
+      renderUserLists();
+      dom.verify.search?.addEventListener('input', renderUserLists);
+      dom.refreshBtn?.addEventListener('click', refreshCurrentPage);
+    })
+    .catch((error) => alert(`Failed to load verifications: ${error.message}`))
+    .finally(() => toggleLoading(dom.verify.loading, false));
 }
 
 function setupPostsPage() {
-  dom.refreshBtn?.addEventListener('click', () => {
-    loadPosts().catch(console.error);
-  });
-  dom.postsSearch?.addEventListener('input', updateDisplayedPosts);
-  loadPosts().catch(console.error);
+  toggleLoading(dom.posts.loading, true);
+  fetchPosts()
+    .then(() => {
+      renderPosts();
+      dom.posts.search?.addEventListener('input', renderPosts);
+      dom.refreshBtn?.addEventListener('click', refreshCurrentPage);
+    })
+    .catch((error) => alert(`Failed to load posts: ${error.message}`))
+    .finally(() => toggleLoading(dom.posts.loading, false));
 }
 
 function setupRumorsPage() {
-  dom.refreshBtn?.addEventListener('click', () => {
-    loadRumors().catch(console.error);
-  });
-  dom.rumorsSearch?.addEventListener('input', updateDisplayedRumors);
-  loadRumors().catch(console.error);
+  toggleLoading(dom.rumors.loading, true);
+  fetchRumors()
+    .then(() => {
+      renderRumors();
+      dom.rumors.search?.addEventListener('input', renderRumors);
+      dom.refreshBtn?.addEventListener('click', refreshCurrentPage);
+    })
+    .catch((error) => alert(`Failed to load rumors: ${error.message}`))
+    .finally(() => toggleLoading(dom.rumors.loading, false));
 }
 
-if (isUsersPage) {
-  setupUsersPage();
-} else if (isPostsPage) {
-  setupPostsPage();
-} else if (isRumorsPage) {
-  setupRumorsPage();
+function setupHomePage() {
+  dom.refreshBtn?.addEventListener('click', refreshCurrentPage);
+  loadHomePage();
+}
+
+switch (page) {
+  case 'users':
+    setupUsersPage();
+    break;
+  case 'verifications':
+    setupVerificationsPage();
+    break;
+  case 'posts':
+    setupPostsPage();
+    break;
+  case 'rumors':
+    setupRumorsPage();
+    break;
+  case 'home':
+  default:
+    setupHomePage();
+    break;
 }

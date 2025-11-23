@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class RumorCommentModel {
   final String id;
   final String rumorId;
+  final String authorId;
+  final String authorName;
+  final String authorImage;
   final String content;
   final DateTime timestamp;
   final int likes;
@@ -13,6 +16,9 @@ class RumorCommentModel {
   RumorCommentModel({
     required this.id,
     required this.rumorId,
+    required this.authorId,
+    required this.authorName,
+    required this.authorImage,
     required this.content,
     required this.timestamp,
     required this.likes,
@@ -26,6 +32,9 @@ class RumorCommentModel {
     return RumorCommentModel(
       id: doc.id,
       rumorId: data['rumorId'] ?? '',
+      authorId: data['authorId'] ?? '',
+      authorName: data['authorName'] ?? '',
+      authorImage: data['authorImage'] ?? '',
       content: data['content'] ?? '',
       timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       likes: data['likes'] ?? 0,
@@ -38,6 +47,9 @@ class RumorCommentModel {
   Map<String, dynamic> toFirestore() {
     return {
       'rumorId': rumorId,
+      'authorId': authorId,
+      'authorName': authorName,
+      'authorImage': authorImage,
       'content': content,
       'timestamp': Timestamp.fromDate(timestamp),
       'likes': likes,
@@ -50,6 +62,9 @@ class RumorCommentModel {
   RumorCommentModel copyWith({
     String? id,
     String? rumorId,
+    String? authorId,
+    String? authorName,
+    String? authorImage,
     String? content,
     DateTime? timestamp,
     int? likes,
@@ -60,6 +75,9 @@ class RumorCommentModel {
     return RumorCommentModel(
       id: id ?? this.id,
       rumorId: rumorId ?? this.rumorId,
+      authorId: authorId ?? this.authorId,
+      authorName: authorName ?? this.authorName,
+      authorImage: authorImage ?? this.authorImage,
       content: content ?? this.content,
       timestamp: timestamp ?? this.timestamp,
       likes: likes ?? this.likes,

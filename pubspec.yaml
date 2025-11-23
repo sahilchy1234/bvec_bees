@@ -59,9 +59,10 @@ dependencies:
   font_awesome_flutter: ^10.7.0
   share_plus: ^10.0.0  # or just omit the version if using `flutter pub add`
 
-  
+
   # Performance
   image: ^4.1.3
+  crypto: ^3.0.3
   cached_network_image: ^3.3.0
   connectivity_plus: ^5.0.2
   iconoir_flutter: ^7.11.0

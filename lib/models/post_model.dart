@@ -17,6 +17,8 @@ class Post {
   final List<String> likedBy;
   final Map<String, int> reactionCounts;
   final Map<String, String> reactions; // userId -> reaction type
+  final bool isEdited;
+  final DateTime? editedAt;
 
   Post({
     required this.id,
@@ -35,6 +37,8 @@ class Post {
     required this.likedBy,
     required this.reactionCounts,
     required this.reactions,
+    this.isEdited = false,
+    this.editedAt,
   });
 
   // Convert to Firestore document
@@ -56,6 +60,8 @@ class Post {
       'likedBy': likedBy,
       'reactionCounts': reactionCounts,
       'reactions': reactions,
+      'isEdited': isEdited,
+      'editedAt': editedAt,
     };
   }
 
@@ -84,6 +90,8 @@ class Post {
       likedBy: List<String>.from(map['likedBy'] ?? []),
       reactionCounts: _parseReactionCounts(map['reactionCounts']),
       reactions: Map<String, String>.from(map['reactions'] ?? {}),
+      isEdited: map['isEdited'] ?? false,
+      editedAt: _parseEditedAt(map['editedAt']),
     );
   }
 
@@ -128,6 +136,8 @@ class Post {
     int? comments,
     int? shares,
     List<String>? likedBy,
+    bool? isEdited,
+    DateTime? editedAt,
   }) {
     return Post(
       id: id ?? this.id,
@@ -146,6 +156,8 @@ class Post {
       likedBy: likedBy ?? this.likedBy,
       reactionCounts: reactionCounts,
       reactions: reactions,
+      isEdited: isEdited ?? this.isEdited,
+      editedAt: editedAt ?? this.editedAt,
     );
   }
 
@@ -173,5 +185,23 @@ class Post {
     }
 
     return result;
+  }
+
+  static DateTime? _parseEditedAt(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is Timestamp) {
+      return raw.toDate();
+    }
+    if (raw is DateTime) {
+      return raw;
+    }
+    if (raw is String) {
+      try {
+        return DateTime.parse(raw);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 }

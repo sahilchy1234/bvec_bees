@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BVEC Bees Admin · Rumors</title>
+  <title>BVEC Bees Admin · Verifications</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body data-page="rumors">
+<body data-page="verifications">
   <header>
     <div class="header-content">
       <h1>BVEC Bees Admin</h1>
       <nav class="nav-links">
         <a href="index.html">Home</a>
         <a href="users.html">Users</a>
-        <a href="verifications.html">Verifications</a>
+        <a href="verifications.html" class="active">Verifications</a>
         <a href="posts.html">Posts</a>
-        <a href="rumors.html" class="active">Rumors</a>
+        <a href="rumors.html">Rumors</a>
       </nav>
     </div>
   </header>
@@ -26,11 +26,14 @@
 
     <section>
       <div class="section-header">
-        <h2>Rumors</h2>
-        <input type="search" id="rumors-search" placeholder="Search rumors..." />
+        <div>
+          <h2>Pending Verifications</h2>
+          <p class="section-subtitle">Review newly registered users and approve or reject them.</p>
+        </div>
+        <input type="search" id="verify-search" placeholder="Search pending users..." />
       </div>
-      <div id="rumors-list" class="card-list"></div>
-      <div id="rumors-loading" class="loading">Loading...</div>
+      <div id="verify-loading" class="loading">Loading pending users...</div>
+      <div id="verify-list" class="card-list"></div>
     </section>
   </main>
 

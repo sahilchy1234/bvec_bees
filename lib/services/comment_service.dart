@@ -14,6 +14,7 @@ class CommentService {
     required String authorName,
     required String authorImage,
     required String content,
+    String? parentCommentId,
   }) async {
     try {
       final commentId = uuid.v4();
@@ -27,6 +28,8 @@ class CommentService {
         timestamp: DateTime.now(),
         likes: 0,
         likedBy: [],
+        parentCommentId: parentCommentId,
+        replyCount: 0,
       );
 
       await _firestore
@@ -35,11 +38,24 @@ class CommentService {
           .collection('comments')
           .doc(commentId)
           .set(comment.toMap());
-
-      // Increment comment count on post
-      await _firestore.collection('posts').doc(postId).update({
-        'comments': FieldValue.increment(1),
-      });
+      
+      // Update counts
+      if (parentCommentId == null) {
+        // Increment top-level comment count on post
+        await _firestore.collection('posts').doc(postId).update({
+          'comments': FieldValue.increment(1),
+        });
+      } else {
+        // Increment reply count on parent comment
+        await _firestore
+            .collection('posts')
+            .doc(postId)
+            .collection('comments')
+            .doc(parentCommentId)
+            .update({
+          'replyCount': FieldValue.increment(1),
+        });
+      }
 
       // Get post owner to send notification
       final postDoc = await _firestore.collection('posts').doc(postId).get();
@@ -69,6 +85,7 @@ class CommentService {
           .collection('posts')
           .doc(postId)
           .collection('comments')
+          .where('parentCommentId', isNull: true)
           .orderBy('timestamp', descending: true)
           .get();
 
@@ -86,6 +103,7 @@ class CommentService {
           .collection('posts')
           .doc(postId)
           .collection('comments')
+          .where('parentCommentId', isNull: true)
           .orderBy('timestamp', descending: false)
           .snapshots()
           .map((snapshot) => snapshot.docs
@@ -93,6 +111,24 @@ class CommentService {
               .toList());
     } catch (e) {
       throw Exception('Failed to listen for comments: $e');
+    }
+  }
+
+  // Stream replies for a given parent comment
+  Stream<List<Comment>> streamReplies(String postId, String parentCommentId) {
+    try {
+      return _firestore
+          .collection('posts')
+          .doc(postId)
+          .collection('comments')
+          .where('parentCommentId', isEqualTo: parentCommentId)
+          .orderBy('timestamp', descending: false)
+          .snapshots()
+          .map((snapshot) => snapshot.docs
+              .map((doc) => Comment.fromMap(doc.data(), doc.id))
+              .toList());
+    } catch (e) {
+      throw Exception('Failed to listen for replies: $e');
     }
   }
 

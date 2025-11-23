@@ -30,6 +30,7 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
   final TextEditingController _rumorController = TextEditingController();
   bool _isCreatingRumor = false;
   bool _isLoading = true;
+  int _dailyRumorCount = 0;
   
   // Pagination and performance optimization
   final List<RumorModel> _rumors = [];
@@ -52,6 +53,26 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
     _loadCurrentUserId();
     _scrollController.addListener(_onScroll);
     _performanceService.optimizeScrollPerformance(_scrollController);
+  }
+
+  Future<void> _loadDailyRumorLimit() async {
+    if (!mounted) return;
+    if (_currentUserId.isEmpty || _currentUserId == 'anonymous') {
+      setState(() {
+        _dailyRumorCount = 0;
+      });
+      return;
+    }
+
+    try {
+      final count = await _rumorService.getDailyRumorCount(_currentUserId);
+      if (!mounted) return;
+      setState(() {
+        _dailyRumorCount = count;
+      });
+    } catch (_) {
+      // Ignore errors; treat as zero
+    }
   }
   
   @override
@@ -113,6 +134,7 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
           _currentUserId = uid;
           _isLoading = false;
         });
+        await _loadDailyRumorLimit();
         await _loadInitialRumors();
       } else {
         setState(() {
@@ -215,7 +237,8 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
   }
 
   Future<void> _createRumor() async {
-    if (_rumorController.text.isEmpty) {
+    final text = _rumorController.text.trim();
+    if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a rumor')),
       );
@@ -227,20 +250,48 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
     });
 
     try {
-      await _rumorService.createRumor(_rumorController.text);
+      final authorId =
+          (_currentUserId.isEmpty || _currentUserId == 'anonymous') ? null : _currentUserId;
+
+      await _rumorService.createRumor(text, authorId: authorId);
       _rumorController.clear();
 
+      // Update and show remaining quota for logged-in users
+      if (authorId != null) {
+        final count = await _rumorService.getDailyRumorCount(authorId);
+        if (mounted) {
+          setState(() {
+            _dailyRumorCount = count;
+          });
+
+          final remaining = (5 - count).clamp(0, 5);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Rumor posted anonymously! $count/5 today, $remaining remaining.',
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Rumor posted anonymously!')),
+          );
+        }
+      }
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Rumor posted anonymously!')),
-        );
         // Refresh the feed to show the new rumor
         _refreshRumors();
       }
     } catch (e) {
       if (mounted) {
+        final message = e.toString().contains('DAILY_RUMOR_LIMIT_REACHED')
+            ? 'You have reached today\'s rumor limit (5). Try again tomorrow.'
+            : 'Error: $e';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text(message)),
         );
       }
     } finally {
@@ -253,6 +304,9 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
   }
 
   void _showCreateRumorDialog() {
+    // Refresh limit info each time sheet opens
+    _loadDailyRumorLimit();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.grey[900],
@@ -264,6 +318,13 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
         ),
       ),
       builder: (context) {
+        final bool limitReached =
+            _currentUserId != 'anonymous' && _dailyRumorCount >= 5;
+
+        final int remaining = (_currentUserId == 'anonymous')
+            ? 0
+            : (5 - _dailyRumorCount).clamp(0, 5);
+
         return Padding(
           padding: EdgeInsets.fromLTRB(
             16,
@@ -328,6 +389,25 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
                 ),
               ),
               const SizedBox(height: 12),
+              if (_currentUserId != 'anonymous')
+                Text(
+                  limitReached
+                      ? 'You have used all 5 rumor posts for today. Try again tomorrow.'
+                      : 'You can post up to 5 rumors per day. Used: $_dailyRumorCount/5, remaining: $remaining.',
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 12,
+                  ),
+                ),
+              if (_currentUserId == 'anonymous')
+                Text(
+                  'Posting anonymously without login. Daily limits are only tracked for logged-in users.',
+                  style: TextStyle(
+                    color: Colors.grey[500],
+                    fontSize: 12,
+                  ),
+                ),
+              const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -340,7 +420,13 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: _isCreatingRumor ? null : _createRumor,
+                    onPressed: _isCreatingRumor ||
+                            (_currentUserId != 'anonymous' && _dailyRumorCount >= 5)
+                        ? null
+                        : () {
+                            Navigator.of(context).pop();
+                            _createRumor();
+                          },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.amber,
                       disabledBackgroundColor: Colors.grey[700],
@@ -358,9 +444,11 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
                                   AlwaysStoppedAnimation<Color>(Colors.black),
                             ),
                           )
-                        : const Text(
-                            'Post',
-                            style: TextStyle(
+                        : Text(
+                            (_currentUserId != 'anonymous' && _dailyRumorCount >= 5)
+                                ? 'Limit reached'
+                                : 'Post',
+                            style: const TextStyle(
                               color: Colors.black,
                               fontWeight: FontWeight.bold,
                             ),

@@ -6,6 +6,7 @@ import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 import '../models/user_model.dart';
 import 'pending_verification_page.dart';
+import '../widgets/avatar_crop_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -40,11 +41,28 @@ class _RegisterPageState extends State<RegisterPage> {
       imageQuality: 80,
     );
     if (image != null) {
+      File file = File(image.path);
+
+      if (isAvatar) {
+        // Open custom in-app avatar cropper
+        final croppedFile = await Navigator.of(context).push<File?>(
+          MaterialPageRoute(
+            builder: (_) => AvatarCropPage(imageFile: file),
+          ),
+        );
+
+        if (croppedFile == null) {
+          return; // user cancelled
+        }
+
+        file = croppedFile;
+      }
+
       setState(() {
         if (isAvatar) {
-          _avatarFile = File(image.path);
+          _avatarFile = file;
         } else {
-          _idCardFile = File(image.path);
+          _idCardFile = file;
         }
       });
     }

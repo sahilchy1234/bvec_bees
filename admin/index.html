@@ -6,12 +6,14 @@
   <title>BVEC Bees Admin</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body data-page="users">
+<body data-page="home">
   <header>
     <div class="header-content">
       <h1>BVEC Bees Admin</h1>
       <nav class="nav-links">
-        <a href="index.html" class="active">Users</a>
+        <a href="index.html" class="active">Home</a>
+        <a href="users.html">Users</a>
+        <a href="verifications.html">Verifications</a>
         <a href="posts.html">Posts</a>
         <a href="rumors.html">Rumors</a>
       </nav>
@@ -22,24 +24,40 @@
       <button id="refreshBtn">Refresh</button>
     </section>
 
-    <section>
-      <div class="section-header">
-        <h2>Pending Verifications</h2>
-        <input type="search" id="pending-search" placeholder="Search pending..." />
+    <section class="stats-grid">
+      <div class="stat-card">
+        <p>Total Users</p>
+        <h2 id="stat-total-users">--</h2>
       </div>
-      <div id="pending-list" class="card-list"></div>
-      <div id="pending-loading" class="loading">Loading...</div>
+      <div class="stat-card">
+        <p>New Users (Today)</p>
+        <h2 id="stat-new-users">--</h2>
+      </div>
+      <div class="stat-card">
+        <p>Pending Verifications</p>
+        <h2 id="stat-pending-users">--</h2>
+      </div>
+      <div class="stat-card">
+        <p>Posts (Today)</p>
+        <h2 id="stat-posts-today">--</h2>
+      </div>
+      <div class="stat-card">
+        <p>Rumors (Today)</p>
+        <h2 id="stat-rumors-today">--</h2>
+      </div>
     </section>
 
-    <section>
+    <section class="daily-section">
       <div class="section-header">
-        <h2>Verified Users</h2>
-        <input type="search" id="verified-search" placeholder="Search verified..." />
+        <div>
+          <h2>Daily Overview</h2>
+          <p class="section-subtitle">Snapshots for the last 24 hours</p>
+        </div>
       </div>
-      <div id="verified-list" class="card-list"></div>
-      <div id="verified-loading" class="loading">Loading...</div>
+      <div id="daily-log" class="daily-log">
+        <p class="muted">Loading daily stats...</p>
+      </div>
     </section>
-
   </main>
 
   <script type="module" src="app.js"></script>

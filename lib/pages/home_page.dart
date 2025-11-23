@@ -11,6 +11,7 @@ import '../services/notification_service.dart';
 import '../services/chat_service.dart';
 import '../models/user_model.dart';
 import '../models/conversation_model.dart';
+import '../utils/suspension_utils.dart';
 import 'feed_page.dart';
 import 'profile_page.dart';
 import 'search_page.dart';
@@ -18,6 +19,7 @@ import 'conversations_page.dart';
 import 'notifications_page.dart';
 import 'swipe_page.dart';
 import 'rumor_feed_page.dart';
+import 'suspended_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -40,6 +42,29 @@ class _HomePageState extends State<HomePage> {
   final NotificationService _notificationService = NotificationService();
   final ChatService _chatService = ChatService();
   String? _currentUserIdForBadges;
+  bool _handledSuspensionRedirect = false;
+
+  Future<void> _navigateToSuspended(UserModel user) async {
+    if (_handledSuspensionRedirect || !mounted) return;
+    setState(() {
+      _handledSuspensionRedirect = true;
+    });
+    await SuspensionUtils.saveSuspensionState(user);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', false);
+    await prefs.setBool('pending_verification', false);
+    await prefs.setBool('isSuspended', true);
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => SuspendedPage(
+          note: user.suspensionNote,
+          until: user.suspendedUntil,
+        ),
+      ),
+      (route) => false,
+    );
+  }
 
   Widget _pageFor(int index) {
     switch (index) {
@@ -54,6 +79,17 @@ class _HomePageState extends State<HomePage> {
             }
 
             final profile = snapshot.data;
+
+            if (profile != null && SuspensionUtils.isUserSuspended(profile)) {
+              if (!_handledSuspensionRedirect) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _navigateToSuspended(profile);
+                });
+              }
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.yellow),
+              );
+            }
 
             final userId = profile?.uid ?? 'unknown';
             final userName = profile?.name ?? 'User';
@@ -168,11 +204,18 @@ class _HomePageState extends State<HomePage> {
       
       if (profile != null) {
         print('Profile loaded successfully: ${profile.name}');
+        if (SuspensionUtils.isUserSuspended(profile)) {
+          await prefs.setBool('isSuspended', true);
+          await SuspensionUtils.saveSuspensionState(profile);
+        } else {
+          await prefs.setBool('isSuspended', false);
+          await SuspensionUtils.clearSuspensionState();
+        }
         return profile;
       }
 
       print('No profile found in Firestore, using cached data');
-      return UserModel(
+      final fallbackUser = UserModel(
         uid: uid,
         email: prefs.getString('current_user_email') ?? '',
         name: prefs.getString('current_user_name') ?? 'User',
@@ -186,6 +229,11 @@ class _HomePageState extends State<HomePage> {
         isVerified: prefs.getBool('isLoggedIn') ?? false,
         password: null,
       );
+      if (!SuspensionUtils.isUserSuspended(fallbackUser)) {
+        await prefs.setBool('isSuspended', false);
+        await SuspensionUtils.clearSuspensionState();
+      }
+      return fallbackUser;
     } catch (e) {
       print('Error loading user: $e');
       return null;

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BVEC Bees Admin · Users</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-page="users">
+  <header>
+    <div class="header-content">
+      <h1>BVEC Bees Admin</h1>
+      <nav class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="users.html" class="active">Users</a>
+        <a href="verifications.html">Verifications</a>
+        <a href="posts.html">Posts</a>
+        <a href="rumors.html">Rumors</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="controls">
+      <button id="refreshBtn">Refresh</button>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <div>
+          <h2>All Users</h2>
+          <p class="section-subtitle">
+            Search users and manage verification, suspension, and blocking status.
+          </p>
+        </div>
+        <input
+          type="search"
+          id="users-search"
+          placeholder="Search by name, roll number, or email..."
+        />
+      </div>
+
+      <div class="section-body">
+        <div class="section-meta">
+          <h3>User status & actions</h3>
+          <p class="section-subtitle">
+            Each card shows a user with their current status. Use the buttons on the card to:
+          </p>
+          <ul>
+            <li>Suspend a user for a number of days (with a note shown in the app).</li>
+            <li>Clear or update an existing suspension.</li>
+            <li>Block / unblock a user and record an internal admin note.</li>
+          </ul>
+        </div>
+
+        <div>
+          <div id="users-loading" class="loading">Loading users...</div>
+          <div id="users-list" class="card-list"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

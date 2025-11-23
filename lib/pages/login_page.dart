@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import 'pending_verification_page.dart';
+import 'suspended_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/suspension_utils.dart';
 
 
 class LoginPage extends StatefulWidget {
@@ -33,6 +35,28 @@ class _LoginPageState extends State<LoginPage> {
       await prefs.setString('current_user_name', user.name ?? 'User');
       await prefs.setString('current_user_email', user.email);
       await prefs.setString('current_user_avatar', user.avatarUrl ?? '');
+
+      final suspendedActive = SuspensionUtils.isUserSuspended(user);
+      if (suspendedActive) {
+        await SuspensionUtils.saveSuspensionState(user);
+        await prefs.setBool('isSuspended', true);
+        await prefs.setBool('isLoggedIn', false);
+        await prefs.setBool('pending_verification', false);
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SuspendedPage(
+              note: user.suspensionNote,
+              until: user.suspendedUntil,
+            ),
+          ),
+        );
+        return;
+      } else {
+        await SuspensionUtils.clearSuspensionState();
+        await prefs.setBool('isSuspended', false);
+      }
       
       if (user.isVerified) {
         await prefs.setBool('pending_verification', false);

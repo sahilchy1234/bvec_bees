@@ -151,7 +151,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       final snapshot = await _firestore
           .collection('users')
           .where('isVerified', isEqualTo: true)
-          .limit(10)
+          .limit(100)
           .get();
       
       final q = query.toLowerCase();
@@ -164,8 +164,8 @@ class _CreatePostPageState extends State<CreatePostPage> {
           .where((user) {
             final name = (user.name ?? '').toLowerCase();
             final roll = (user.rollNo ?? '').toLowerCase();
-            final nameMatches = q.length >= 3 ? name.contains(q) : name.startsWith(q);
-            final rollMatches = roll.startsWith(q);
+            final nameMatches = name.contains(q);
+            final rollMatches = roll.contains(q);
             return nameMatches || rollMatches;
           })
           .toList();

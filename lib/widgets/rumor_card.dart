@@ -695,17 +695,31 @@ class _RumorCardState extends State<RumorCard> {
                 ),
                 const SizedBox(width: 12),
                 SizedBox(
-                  width: 44,
+                  width: 64,
                   height: 44,
-                  child: IconButton(
-                    icon: const FaIcon(
-                      FontAwesomeIcons.comment,
-                      color: Color.fromARGB(255, 97, 97, 97),
-                      size: 20,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: widget.onComment,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const FaIcon(
+                          FontAwesomeIcons.comment,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${widget.rumor.commentCount}',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                    onPressed: widget.onComment,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
                   ),
                 ),
               ],

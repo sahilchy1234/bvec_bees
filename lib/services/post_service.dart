@@ -54,7 +54,11 @@ class PostService {
         results.add({
           'id': doc.id,
           'name': data['name'] ?? '',
-          'image': data['image'] ?? data['photoUrl'] ?? data['profileImage'] ?? '',
+          'image': data['image'] ??
+              data['photoUrl'] ??
+              data['profileImage'] ??
+              data['avatarUrl'] ??
+              '',
         });
       }
     }
@@ -326,6 +330,44 @@ class PostService {
     }
   }
 
+  // Update post content (text only) for the author
+  Future<void> updatePostContent({
+    required String postId,
+    required String userId,
+    required String newContent,
+    required List<String> hashtags,
+    required List<String> mentions,
+  }) async {
+    final postRef = _firestore.collection('posts').doc(postId);
+    try {
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(postRef);
+        if (!snapshot.exists) {
+          throw Exception('Post not found');
+        }
+
+        final data = snapshot.data() as Map<String, dynamic>;
+        final authorId = data['authorId'] as String?;
+        if (authorId == null || authorId != userId) {
+          throw Exception('You are not allowed to edit this post');
+        }
+
+        transaction.update(postRef, {
+          'content': newContent,
+          'hashtags': hashtags,
+          'mentions': mentions,
+          'isEdited': true,
+          'editedAt': FieldValue.serverTimestamp(),
+        });
+      });
+
+      // Clear cached feed so edited posts refresh from backend
+      await FeedCacheService.instance.clearCache();
+    } catch (e) {
+      throw Exception('Failed to update post: $e');
+    }
+  }
+
   // Get user's posts
   Future<List<Post>> getUserPosts(String userId) async {
     try {
@@ -507,10 +549,45 @@ class PostService {
   }
 
   // Share a post
-  Future<void> sharePost(String postId) async {
+  Future<void> sharePost(String postId, String userId) async {
+    final postRef = _firestore.collection('posts').doc(postId);
+
     try {
-      await _firestore.collection('posts').doc(postId).update({
-        'shares': FieldValue.increment(1),
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(postRef);
+
+        if (!snapshot.exists) {
+          throw Exception('Post not found');
+        }
+
+        final data = snapshot.data() as Map<String, dynamic>;
+
+        final dynamic sharedByRaw = data['sharedBy'];
+        final List<String> sharedBy = sharedByRaw is Iterable
+            ? List<String>.from(sharedByRaw)
+            : <String>[];
+
+        if (sharedBy.contains(userId)) {
+          return;
+        }
+
+        final dynamic sharesRaw = data['shares'];
+        int currentShares = 0;
+        if (sharesRaw is int) {
+          currentShares = sharesRaw;
+        } else if (sharesRaw is num) {
+          currentShares = sharesRaw.toInt();
+        } else if (sharesRaw is String) {
+          currentShares = int.tryParse(sharesRaw) ?? 0;
+        }
+
+        final int newShares = currentShares + 1;
+        sharedBy.add(userId);
+
+        transaction.update(postRef, {
+          'shares': newShares,
+          'sharedBy': sharedBy,
+        });
       });
     } catch (e) {
       throw Exception('Failed to share post: $e');

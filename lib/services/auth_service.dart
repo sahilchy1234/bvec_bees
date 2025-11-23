@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import '../models/user_model.dart';
 
 class AuthService {
@@ -12,6 +14,14 @@ class AuthService {
 
       // Start from the user model map
       final data = user.toMap();
+
+      // Hash password before storing (if provided)
+      if (user.rollNo != null &&
+          user.rollNo!.isNotEmpty &&
+          user.password != null &&
+          user.password!.isNotEmpty) {
+        data['password'] = _hashPassword(user.rollNo!, user.password!);
+      }
 
       // Ensure notification preference fields exist for new users
       data['chatNotificationsEnabled'] ??= true;
@@ -46,11 +56,31 @@ class AuthService {
       final data = query.docs.first.data();
       final user = UserModel.fromMap({...data, 'uid': query.docs.first.id});
 
-      if ((user.password ?? '') != password) {
+      final storedPassword = user.password ?? '';
+      if (storedPassword.isEmpty) {
         throw Exception('Invalid credentials');
       }
 
-      return user;
+      // First try hashed comparison
+      final hashedInput = _hashPassword(normalized, password);
+      if (storedPassword == hashedInput) {
+        return user;
+      }
+
+      // Backward compatibility: if stored value matches raw password,
+      // treat as valid once and upgrade to hashed.
+      if (storedPassword == password) {
+        try {
+          final newHash = hashedInput;
+          await _firestore
+              .collection('users')
+              .doc(user.uid)
+              .update({'password': newHash});
+        } catch (_) {}
+        return user;
+      }
+
+      throw Exception('Invalid credentials');
     } catch (e) {
       rethrow;
     }
@@ -82,5 +112,12 @@ class AuthService {
     } catch (e) {
       rethrow;
     }
+  }
+
+  String _hashPassword(String rollNo, String password) {
+    final normalizedRoll = rollNo.trim().toLowerCase();
+    final bytes = utf8.encode('$normalizedRoll::$password');
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 }

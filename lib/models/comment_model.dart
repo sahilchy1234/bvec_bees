@@ -10,6 +10,8 @@ class Comment {
   final DateTime timestamp;
   final int likes;
   final List<String> likedBy;
+  final String? parentCommentId;
+  final int replyCount;
 
   Comment({
     required this.id,
@@ -21,6 +23,8 @@ class Comment {
     required this.timestamp,
     required this.likes,
     required this.likedBy,
+    this.parentCommentId,
+    this.replyCount = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -34,6 +38,8 @@ class Comment {
       'timestamp': timestamp,
       'likes': likes,
       'likedBy': likedBy,
+      'parentCommentId': parentCommentId,
+      'replyCount': replyCount,
     };
   }
 
@@ -48,6 +54,8 @@ class Comment {
       timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       likes: map['likes'] ?? 0,
       likedBy: List<String>.from(map['likedBy'] ?? []),
+      parentCommentId: map['parentCommentId'],
+      replyCount: map['replyCount'] ?? 0,
     );
   }
 
@@ -61,6 +69,8 @@ class Comment {
     DateTime? timestamp,
     int? likes,
     List<String>? likedBy,
+    String? parentCommentId,
+    int? replyCount,
   }) {
     return Comment(
       id: id ?? this.id,
@@ -72,6 +82,8 @@ class Comment {
       timestamp: timestamp ?? this.timestamp,
       likes: likes ?? this.likes,
       likedBy: likedBy ?? this.likedBy,
+      parentCommentId: parentCommentId ?? this.parentCommentId,
+      replyCount: replyCount ?? this.replyCount,
     );
   }
 }

@@ -10,6 +10,8 @@ import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/home_page.dart';
 import 'pages/pending_verification_page.dart';
+import 'pages/suspended_page.dart';
+import 'utils/suspension_utils.dart';
 import 'pages/post_detail_page.dart';
 import 'pages/rumor_detail_page.dart';
 import 'services/fcm_service.dart';
@@ -64,6 +66,10 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final pending = prefs.getBool('pending_verification') ?? false;
   final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+  final isSuspended = prefs.getBool('isSuspended') ?? false;
+  final storedNote = prefs.getString(SuspensionUtils.prefSuspensionNoteKey);
+  final storedUntilRaw = prefs.getString(SuspensionUtils.prefSuspensionUntilKey);
+  final storedUntil = SuspensionUtils.parseStoredUntil(storedUntilRaw);
 
   // Initialize FCM using custom auth user id from SharedPreferences
   if (isLoggedIn) {
@@ -73,14 +79,30 @@ void main() async {
     }
   }
 
-  runApp(MyApp(startPending: pending, isLoggedIn: isLoggedIn));
+  runApp(MyApp(
+    startPending: pending,
+    isLoggedIn: isLoggedIn,
+    startSuspended: isSuspended,
+    initialSuspensionNote: storedNote,
+    initialSuspensionUntil: storedUntil,
+  ));
 
 }
 
 class MyApp extends StatefulWidget {
   final bool startPending;
   final bool isLoggedIn;  
-  const MyApp({super.key, required this.startPending, required this.isLoggedIn});  
+  final bool startSuspended;
+  final String? initialSuspensionNote;
+  final DateTime? initialSuspensionUntil;
+  const MyApp({
+    super.key,
+    required this.startPending,
+    required this.isLoggedIn,
+    required this.startSuspended,
+    this.initialSuspensionNote,
+    this.initialSuspensionUntil,
+  });  
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -167,16 +189,25 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
       ),
-      home: widget.isLoggedIn 
-          ? const HomePage()  
-          : (widget.startPending 
-              ? const PendingVerificationPage() 
-              : const LoginPage()),
+      home: widget.startSuspended
+          ? SuspendedPage(
+              note: widget.initialSuspensionNote,
+              until: widget.initialSuspensionUntil,
+            )
+          : widget.isLoggedIn 
+              ? const HomePage()  
+              : (widget.startPending 
+                  ? const PendingVerificationPage() 
+                  : const LoginPage()),
       routes: {
         '/login': (context) => const LoginPage(),
         '/register': (context) => const RegisterPage(),
         '/home': (context) => const HomePage(),
         '/pending': (context) => const PendingVerificationPage(),
+        '/suspended': (context) => SuspendedPage(
+              note: widget.initialSuspensionNote,
+              until: widget.initialSuspensionUntil,
+            ),
       },
     );
   }

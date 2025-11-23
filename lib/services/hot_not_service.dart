@@ -110,13 +110,23 @@ class HotNotService {
     final String? normalizedTargetLookingFor = targetUserLookingFor?.toLowerCase();
     final String? normalizedGenderFilter = genderFilter?.toLowerCase();
 
+    // Helper: treat only 'male'/'female' as binary; others (non-binary,
+    // 'prefer not to say', etc.) are considered neutral and should not
+    // break matching logic.
+    bool isBinary(String? g) => g == 'male' || g == 'female';
+
     // Apply gender filter from settings if provided
     if (normalizedGenderFilter != null && normalizedGenderFilter != 'all') {
       if (normalizedTargetGender != normalizedGenderFilter) return false;
     }
 
-    // Check current user's preference
-    if (normalizedCurrentLookingFor != null && normalizedCurrentLookingFor != 'both') {
+    // Check current user's preference (only enforce strict rules when both
+    // sides have binary genders). This prevents "Prefer not to say" and
+    // non-binary users from being excluded unexpectedly.
+    if (normalizedCurrentLookingFor != null &&
+        normalizedCurrentLookingFor != 'both' &&
+        isBinary(normalizedCurrentGender) &&
+        isBinary(normalizedTargetGender)) {
       if (normalizedCurrentLookingFor == 'opposite') {
         if (normalizedCurrentGender == 'male' && normalizedTargetGender != 'female') {
           return false;
@@ -129,8 +139,12 @@ class HotNotService {
       }
     }
 
-    // Check target user's preference
-    if (normalizedTargetLookingFor != null && normalizedTargetLookingFor != 'both') {
+    // Check target user's preference (also only strictly enforce when both
+    // sides have binary genders).
+    if (normalizedTargetLookingFor != null &&
+        normalizedTargetLookingFor != 'both' &&
+        isBinary(normalizedTargetGender) &&
+        isBinary(normalizedCurrentGender)) {
       if (normalizedTargetLookingFor == 'opposite') {
         if (normalizedTargetGender == 'male' && normalizedCurrentGender != 'female') {
           return false;

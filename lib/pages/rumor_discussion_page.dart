@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/rumor_model.dart';
 import '../models/rumor_comment_model.dart';
 import '../services/rumor_service.dart';
+import '../widgets/cached_network_image_widget.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RumorDiscussionPage extends StatefulWidget {
@@ -50,9 +51,16 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
     if (_commentController.text.trim().isEmpty) return;
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final authorName = prefs.getString('current_user_name') ?? 'User';
+      final authorImage = prefs.getString('current_user_avatar') ?? '';
+
       await _rumorService.addComment(
         widget.rumor.id,
         _commentController.text.trim(),
+        authorId: _currentUserId,
+        authorName: authorName,
+        authorImage: authorImage,
         parentCommentId: _replyingToCommentId,
       );
 
@@ -61,42 +69,8 @@ class _RumorDiscussionPageState extends State<RumorDiscussionPage> {
         _replyingToCommentId = null;
         _replyingToAuthor = null;
       });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white, size: 20),
-                SizedBox(width: 12),
-                Text('Comment posted successfully'),
-              ],
-            ),
-            backgroundColor: Colors.green.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            margin: const EdgeInsets.all(16),
-          ),
-        );
-      }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.error_outline, color: Colors.white, size: 20),
-                const SizedBox(width: 12),
-                Expanded(child: Text('Failed to post: ${e.toString()}')),
-              ],
-            ),
-            backgroundColor: Colors.red.shade600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            margin: const EdgeInsets.all(16),
-          ),
-        );
-      }
+      // Silently ignore UI feedback here; error could be logged if desired.
     }
   }
 
@@ -548,25 +522,12 @@ class _CommentThreadState extends State<_CommentThread> with SingleTickerProvide
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.grey[700]!,
-                            Colors.grey[800]!,
-                          ],
-                        ),
-                      ),
-                      child: const Center(
-                        child: FaIcon(
-                          FontAwesomeIcons.userSecret,
-                          color: Colors.white54,
-                          size: 14,
-                        ),
-                      ),
+                    CachedCircleAvatar(
+                      imageUrl: widget.comment.authorImage,
+                      displayName: widget.comment.authorName,
+                      radius: 18,
+                      backgroundColor: Colors.amber,
+                      textColor: Colors.black,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -575,9 +536,11 @@ class _CommentThreadState extends State<_CommentThread> with SingleTickerProvide
                         children: [
                           Row(
                             children: [
-                              const Text(
-                                'Anonymous',
-                                style: TextStyle(
+                              Text(
+                                widget.comment.authorName.isNotEmpty
+                                    ? widget.comment.authorName
+                                    : 'User',
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
@@ -695,7 +658,10 @@ class _CommentThreadState extends State<_CommentThread> with SingleTickerProvide
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () {
-                        widget.onReply(widget.comment.id, 'Anonymous');
+                        final author = widget.comment.authorName.isNotEmpty
+                            ? widget.comment.authorName
+                            : 'User';
+                        widget.onReply(widget.comment.id, author);
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -882,20 +848,12 @@ class _ReplyCommentState extends State<_ReplyComment> with SingleTickerProviderS
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.grey[800],
-                ),
-                child: const Center(
-                  child: FaIcon(
-                    FontAwesomeIcons.userSecret,
-                    color: Colors.white54,
-                    size: 11,
-                  ),
-                ),
+              CachedCircleAvatar(
+                imageUrl: widget.comment.authorImage,
+                displayName: widget.comment.authorName,
+                radius: 14,
+                backgroundColor: Colors.amber,
+                textColor: Colors.black,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -904,9 +862,11 @@ class _ReplyCommentState extends State<_ReplyComment> with SingleTickerProviderS
                   children: [
                     Row(
                       children: [
-                        const Text(
-                          'Anonymous',
-                          style: TextStyle(
+                        Text(
+                          widget.comment.authorName.isNotEmpty
+                              ? widget.comment.authorName
+                              : 'User',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
                             fontSize: 13,

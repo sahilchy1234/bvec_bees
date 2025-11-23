@@ -30,6 +30,10 @@ class _CommentsPageState extends State<CommentsPage> {
   final ScrollController _listController = ScrollController();
   bool _isPosting = false;
   int _lastCommentCount = 0;
+  String? _replyingToCommentId;
+  String? _replyingToAuthor;
+  final FocusNode _commentFocusNode = FocusNode();
+  final Set<String> _expandedCommentIds = {};
 
   @override
   void initState() {
@@ -41,6 +45,7 @@ class _CommentsPageState extends State<CommentsPage> {
   void dispose() {
     _commentController.dispose();
     _listController.dispose();
+    _commentFocusNode.dispose();
     super.dispose();
   }
 
@@ -56,9 +61,14 @@ class _CommentsPageState extends State<CommentsPage> {
         authorName: widget.currentUserName,
         authorImage: widget.currentUserImage,
         content: _commentController.text.trim(),
+        parentCommentId: _replyingToCommentId,
       );
 
       _commentController.clear();
+      setState(() {
+        _replyingToCommentId = null;
+        _replyingToAuthor = null;
+      });
       _scheduleScrollToBottom();
 
       if (mounted) {
@@ -271,41 +281,94 @@ class _CommentsPageState extends State<CommentsPage> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: TextField(
-                          controller: _commentController,
-                          style: GoogleFonts.poppins(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: 'Write a comment...',
-                            hintStyle: GoogleFonts.poppins(color: Colors.grey),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide(
-                                color: Colors.yellow.withOpacity(0.3),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (_replyingToCommentId != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.yellow.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.reply,
+                                      color: Colors.yellow,
+                                      size: 14,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Replying to ${_replyingToAuthor ?? ''}',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.yellow,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _replyingToCommentId = null;
+                                          _replyingToAuthor = null;
+                                        });
+                                      },
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.yellow,
+                                        size: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide(
-                                color: Colors.yellow.withOpacity(0.3),
+                            TextField(
+                              controller: _commentController,
+                              focusNode: _commentFocusNode,
+                              style: GoogleFonts.poppins(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Write a comment...',
+                                hintStyle: GoogleFonts.poppins(color: Colors.grey),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                  borderSide: BorderSide(
+                                    color: Colors.yellow.withOpacity(0.3),
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                  borderSide: BorderSide(
+                                    color: Colors.yellow.withOpacity(0.3),
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                  borderSide: const BorderSide(
+                                    color: Colors.yellow,
+                                    width: 2,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                filled: true,
+                                fillColor: Colors.black,
                               ),
+                              maxLines: null,
+                              textInputAction: TextInputAction.send,
+                              onSubmitted: (_) => _postComment(),
                             ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: const BorderSide(
-                                color: Colors.yellow,
-                                width: 2,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            filled: true,
-                            fillColor: Colors.black,
-                          ),
-                          maxLines: null,
-                          textInputAction: TextInputAction.send,
-                          onSubmitted: (_) => _postComment(),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -339,6 +402,7 @@ class _CommentsPageState extends State<CommentsPage> {
 
   Widget _buildCommentItem(Comment comment) {
     final isOwnComment = comment.authorId == widget.currentUserId;
+    final isExpanded = _expandedCommentIds.contains(comment.id);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -478,8 +542,241 @@ class _CommentsPageState extends State<CommentsPage> {
                           ],
                         ),
                       ),
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _replyingToCommentId = comment.id;
+                            _replyingToAuthor = comment.authorName;
+                          });
+                          _commentFocusNode.requestFocus();
+                        },
+                        child: Text(
+                          'Reply',
+                          style: GoogleFonts.poppins(
+                            color: Colors.yellow,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
+                ),
+                if (comment.replyCount > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 40, top: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              if (isExpanded) {
+                                _expandedCommentIds.remove(comment.id);
+                              } else {
+                                _expandedCommentIds.add(comment.id);
+                              }
+                            });
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AnimatedRotation(
+                                duration: const Duration(milliseconds: 200),
+                                turns: isExpanded ? 0.5 : 0.0,
+                                child: const Icon(
+                                  Icons.expand_more,
+                                  color: Colors.grey,
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                isExpanded
+                                    ? 'Hide ${comment.replyCount} ${comment.replyCount == 1 ? 'reply' : 'replies'}'
+                                    : 'View ${comment.replyCount} ${comment.replyCount == 1 ? 'reply' : 'replies'}',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.grey,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isExpanded)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 24, top: 6),
+                            child: StreamBuilder<List<Comment>>(
+                              stream: _commentService.streamReplies(
+                                widget.postId,
+                                comment.id,
+                              ),
+                              builder: (context, snapshot) {
+                                final replies = snapshot.data ?? [];
+                                if (replies.isEmpty) {
+                                  return const SizedBox.shrink();
+                                }
+                                return Column(
+                                  children: replies
+                                      .map((reply) => _buildReplyItem(reply))
+                                      .toList(),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplyItem(Comment reply) {
+    final isOwnReply = reply.authorId == widget.currentUserId;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildUserAvatar(reply.authorImage, reply.authorName, radius: 14),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[900],
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              reply.authorName,
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          if (isOwnReply)
+                            PopupMenuButton(
+                              color: Colors.grey[800],
+                              itemBuilder: (context) => [
+                                PopupMenuItem(
+                                  child: Text(
+                                    'Delete',
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  onTap: () async {
+                                    try {
+                                      await _commentService.deleteComment(
+                                        widget.postId,
+                                        reply.id,
+                                      );
+                                    } catch (e) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(content: Text('Error: $e')),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ],
+                              icon: const Icon(
+                                Icons.more_vert,
+                                color: Colors.grey,
+                                size: 14,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        reply.content,
+                        style: GoogleFonts.poppins(
+                          color: Colors.white,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Text(
+                      _formatTime(reply.timestamp),
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey,
+                        fontSize: 10,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: () async {
+                        try {
+                          if (reply.likedBy.contains(widget.currentUserId)) {
+                            await _commentService.unlikeComment(
+                              widget.postId,
+                              reply.id,
+                              widget.currentUserId,
+                            );
+                          } else {
+                            await _commentService.likeComment(
+                              widget.postId,
+                              reply.id,
+                              widget.currentUserId,
+                            );
+                          }
+                        } catch (e) {
+                          // Handle error silently
+                        }
+                      },
+                      child: Row(
+                        children: [
+                          FaIcon(
+                            reply.likedBy.contains(widget.currentUserId)
+                                ? FontAwesomeIcons.solidHeart
+                                : FontAwesomeIcons.heart,
+                            color: reply.likedBy
+                                    .contains(widget.currentUserId)
+                                ? Colors.red
+                                : Colors.grey,
+                            size: 11,
+                          ),
+                          if (reply.likes > 0) ...[
+                            const SizedBox(width: 3),
+                            Text(
+                              '${reply.likes}',
+                              style: GoogleFonts.poppins(
+                                color: Colors.grey,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

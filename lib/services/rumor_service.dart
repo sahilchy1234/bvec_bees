@@ -9,6 +9,7 @@ class RumorService {
   final RumorCacheService _cacheService = RumorCacheService.instance;
   static const String _rumorsCollection = 'rumors';
   static const String _commentsCollection = 'comments';
+  static const String _rumorLimitsCollection = 'rumor_limits';
   static const int _defaultPageSize = 20;
   static const int _maxConcurrentRequests = 3;
   
@@ -196,22 +197,110 @@ class RumorService {
     _lastData = null;
   }
 
-  // Create a new rumor
-  Future<String> createRumor(String content) async {
+  // Create a new rumor, with optional per-user daily limit when authorId is provided
+  Future<String> createRumor(
+    String content, {
+    String? authorId,
+  }) async {
     try {
-      final docRef = await _firestore.collection(_rumorsCollection).add({
-        'content': content,
-        'timestamp': Timestamp.now(),
-        'yesVotes': 0,
-        'noVotes': 0,
-        'commentCount': 0,
-        'votedYesByUsers': [],
-        'votedNoByUsers': [],
-        'credibilityScore': 0.5,
+      // If no authorId (fully anonymous client), keep legacy behavior without limit
+      if (authorId == null || authorId.isEmpty || authorId == 'anonymous') {
+        final docRef = await _firestore.collection(_rumorsCollection).add({
+          'content': content,
+          'timestamp': Timestamp.now(),
+          'yesVotes': 0,
+          'noVotes': 0,
+          'commentCount': 0,
+          'votedYesByUsers': [],
+          'votedNoByUsers': [],
+          'credibilityScore': 0.5,
+        });
+        return docRef.id;
+      }
+
+      final todayKey = _buildDateKey(DateTime.now());
+      final limitsRef =
+          _firestore.collection(_rumorLimitsCollection).doc(authorId);
+      final rumorRef = _firestore.collection(_rumorsCollection).doc();
+
+      await _firestore.runTransaction((transaction) async {
+        final limitsSnap = await transaction.get(limitsRef);
+
+        int currentCount = 0;
+        String? storedKey;
+        if (limitsSnap.exists) {
+          final data = limitsSnap.data() as Map<String, dynamic>;
+          storedKey = data['dateKey'] as String?;
+          if (storedKey == todayKey) {
+            final rawCount = data['count'];
+            if (rawCount is int) {
+              currentCount = rawCount;
+            } else if (rawCount is num) {
+              currentCount = rawCount.toInt();
+            } else if (rawCount is String) {
+              currentCount = int.tryParse(rawCount) ?? 0;
+            }
+          }
+        }
+
+        if (currentCount >= 5) {
+          throw Exception('DAILY_RUMOR_LIMIT_REACHED');
+        }
+
+        // Create rumor document
+        transaction.set(rumorRef, {
+          'content': content,
+          'timestamp': Timestamp.now(),
+          'yesVotes': 0,
+          'noVotes': 0,
+          'commentCount': 0,
+          'votedYesByUsers': [],
+          'votedNoByUsers': [],
+          'credibilityScore': 0.5,
+          'authorId': authorId,
+        });
+
+        // Update per-day counter
+        transaction.set(
+          limitsRef,
+          {
+            'dateKey': todayKey,
+            'count': currentCount + 1,
+          },
+          SetOptions(merge: true),
+        );
       });
-      return docRef.id;
+
+      return rumorRef.id;
     } catch (e) {
+      // Bubble up specific limit error so UI can show friendly message
+      if (e.toString().contains('DAILY_RUMOR_LIMIT_REACHED')) {
+        throw Exception('DAILY_RUMOR_LIMIT_REACHED');
+      }
       throw Exception('Failed to create rumor: $e');
+    }
+  }
+
+  // Get how many rumors the user has posted today
+  Future<int> getDailyRumorCount(String userId) async {
+    if (userId.isEmpty || userId == 'anonymous') return 0;
+
+    try {
+      final todayKey = _buildDateKey(DateTime.now());
+      final doc =
+          await _firestore.collection(_rumorLimitsCollection).doc(userId).get();
+      if (!doc.exists) return 0;
+
+      final data = doc.data() as Map<String, dynamic>;
+      if (data['dateKey'] != todayKey) return 0;
+
+      final rawCount = data['count'];
+      if (rawCount is int) return rawCount;
+      if (rawCount is num) return rawCount.toInt();
+      if (rawCount is String) return int.tryParse(rawCount) ?? 0;
+      return 0;
+    } catch (_) {
+      return 0;
     }
   }
 
@@ -332,6 +421,9 @@ class RumorService {
   Future<String> addComment(
     String rumorId,
     String content, {
+    required String authorId,
+    required String authorName,
+    required String authorImage,
     String? parentCommentId,
   }) async {
     try {
@@ -342,6 +434,9 @@ class RumorService {
           .collection(_commentsCollection)
           .add({
         'rumorId': rumorId,
+        'authorId': authorId,
+        'authorName': authorName,
+        'authorImage': authorImage,
         'content': content,
         'timestamp': Timestamp.now(),
         'likes': 0,
@@ -559,6 +654,14 @@ class RumorService {
     }
 
     return result;
+  }
+
+  String _buildDateKey(DateTime dt) {
+    final d = dt.toLocal();
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$y-$m-$day';
   }
 
   // Delete a rumor (admin only)

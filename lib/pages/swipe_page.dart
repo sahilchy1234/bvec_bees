@@ -948,11 +948,19 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
 
   Widget _buildUserAvatar(String imageUrl, String userName, {double radius = 100}) {
     if (imageUrl.isEmpty) {
-      final initials = userName
-          .split(' ')
-          .map((e) => e.isNotEmpty ? e[0].toUpperCase() : '')
-          .join()
-          .substring(0, math.min(2, userName.length));
+      // Build safe initials from the name, avoiding out-of-range substring
+      String initials = userName
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((e) => e.isNotEmpty)
+          .map((e) => e[0].toUpperCase())
+          .join();
+
+      if (initials.isEmpty) {
+        initials = '?';
+      } else if (initials.length > 2) {
+        initials = initials.substring(0, 2);
+      }
 
       return CircleAvatar(
         radius: radius,
@@ -1978,11 +1986,16 @@ Widget _buildPlaceholder({
                                       color: Colors.white70,
                                     ),
                                     const SizedBox(width: 6),
-                                    Text(
-                                      user.branch!,
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white70,
-                                        fontSize: 12,
+                                    Flexible(
+                                      child: Text(
+                                        user.branch!,
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.white70,
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        softWrap: false,
                                       ),
                                     ),
                                   ],

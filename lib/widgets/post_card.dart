@@ -164,7 +164,15 @@ class _ReactionsSheetState extends State<_ReactionsSheet> {
               indicatorColor: Colors.yellow,
               labelColor: Colors.yellow,
               unselectedLabelColor: Colors.grey,
-              tabs: _options.map((o) => Tab(text: '${o.emoji} ${_countFor(o.key)}')).toList(),
+              tabs: _options
+                  .map(
+                    (o) => Tab(
+                      text: o.key == 'all'
+                          ? 'All ${_countFor(o.key)}'
+                          : '${o.emoji} ${_countFor(o.key)}',
+                    ),
+                  )
+                  .toList(),
             ),
             const SizedBox(height: 8),
             Expanded(
@@ -302,6 +310,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   static const double _pickerIconSlotWidth = 44.0;
   static const double _pickerHorizontalPadding = 10.0;
   bool _isOpeningImage = false;
+  bool _isSharing = false;
 
   final List<_ReactionOption> _reactionOptions = const [
     _ReactionOption(key: 'like', label: 'Like', emoji: '👍', color: Colors.blue),
@@ -407,24 +416,46 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   }
 
   Future<void> _sharePost() async {
+    if (_isSharing) return;
+
     final postId = widget.post.id;
     // link.getbeezy.app is the configured Dynamic Links domain
     final shareUrl = 'https://link.getbeezy.app/post/$postId';
 
-    try {
-      await _postService.sharePost(postId);
+    if (mounted) {
+      setState(() {
+        _isSharing = true;
+      });
+    } else {
+      _isSharing = true;
+    }
 
+    try {
       final message = 'Check out this post on Beezy:\n$shareUrl';
 
       await Share.share(
         message,
         subject: 'Beezy post',
       );
+
+      // Update share count in the background so it does not delay the share sheet
+      if (widget.currentUserId.isNotEmpty) {
+        // Intentionally not awaited to avoid extra latency
+        _postService.sharePost(postId, widget.currentUserId);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error sharing post: $e')),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSharing = false;
+        });
+      } else {
+        _isSharing = false;
+      }
     }
   }
 
@@ -983,6 +1014,103 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     }
   }
 
+  List<String> _extractHashtags(String text) {
+    final regex = RegExp(r'#\w+');
+    return regex.allMatches(text).map((m) => m.group(0)!).toList();
+  }
+
+  List<String> _extractMentions(String text) {
+    final regex = RegExp(r'@\w+');
+    return regex.allMatches(text).map((m) => m.group(0)!).toList();
+  }
+
+  Future<void> _showEditPostDialog() async {
+    final controller = TextEditingController(text: widget.post.content);
+
+    final updatedText = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: Text(
+            'Edit post',
+            style: GoogleFonts.poppins(color: Colors.white),
+          ),
+          content: TextField(
+            controller: controller,
+            maxLines: 5,
+            style: GoogleFonts.poppins(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Update your text',
+              hintStyle: GoogleFonts.poppins(color: Colors.grey),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[700]!),
+              ),
+              focusedBorder: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+                borderSide: BorderSide(color: Colors.yellow),
+              ),
+              filled: true,
+              fillColor: Colors.grey[850],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(null),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(color: Colors.grey[300]),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(controller.text.trim());
+              },
+              child: Text(
+                'Save',
+                style: GoogleFonts.poppins(color: Colors.yellow),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (updatedText == null) return;
+    if (updatedText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post text cannot be empty')),
+      );
+      return;
+    }
+
+    final hashtags = _extractHashtags(updatedText);
+    final mentions = _extractMentions(updatedText);
+
+    try {
+      await _postService.updatePostContent(
+        postId: widget.post.id,
+        userId: widget.currentUserId,
+        newContent: updatedText,
+        hashtags: hashtags,
+        mentions: mentions,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post updated')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update post: $e')),
+      );
+    }
+  }
+
   Widget _buildPickerIcon(_ReactionOption option, int index) {
     final curve = CurvedAnimation(
       parent: _pickerController,
@@ -1107,12 +1235,28 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                                   fontSize: 14,
                                 ),
                               ),
-                              Text(
-                                _formatTime(widget.post.timestamp),
-                                style: GoogleFonts.poppins(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _formatTime(widget.post.timestamp),
+                                    style: GoogleFonts.poppins(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  if (widget.post.isEdited) ...[
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Edited',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.grey,
+                                        fontSize: 11,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ],
                           ),
@@ -1125,6 +1269,15 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                   PopupMenuButton(
                     color: Colors.grey[900],
                     itemBuilder: (context) => [
+                      PopupMenuItem(
+                        child: Text(
+                          'Edit',
+                          style: GoogleFonts.poppins(color: Colors.white),
+                        ),
+                        onTap: () {
+                          Future.microtask(_showEditPostDialog);
+                        },
+                      ),
                       PopupMenuItem(
                         child: Text(
                           'Delete',
@@ -1204,12 +1357,16 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  '${widget.post.comments} comments',
-                  style: GoogleFonts.poppins(
-                    color: Colors.grey,
-                    fontSize: 12,
-                    letterSpacing: 0.1,
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onComment,
+                  child: Text(
+                    '${widget.post.comments} comments',
+                    style: GoogleFonts.poppins(
+                      color: Colors.grey,
+                      fontSize: 12,
+                      letterSpacing: 0.1,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 18),
@@ -1252,6 +1409,8 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                       label: 'Share',
                       color: Colors.grey,
                       onTap: _sharePost,
+                      isLoading: _isSharing,
+                      enabled: !_isSharing,
                     ),
                   ),
                 ),
@@ -1269,12 +1428,14 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     required String label,
     required Color color,
     required VoidCallback onTap,
+    bool isLoading = false,
+    bool enabled = true,
   }) {
     final isActive = color == Colors.red || color == Colors.yellow;
     return GestureDetector(
-      onTap: onTap,
+      onTap: (!enabled || isLoading) ? null : onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         // decoration: isActive
         //     ? BoxDecoration(
         //         color: color.withOpacity(0.1),
@@ -1285,14 +1446,29 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            FaIcon(icon, color: color, size: 16),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                color: color,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+            if (isLoading)
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(color),
+                ),
+              )
+            else
+              FaIcon(icon, color: color, size: 16),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                style: GoogleFonts.poppins(
+                  color: color,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
               ),
             ),
           ],
