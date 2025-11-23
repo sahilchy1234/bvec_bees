@@ -187,6 +187,19 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _saveGenderFilter(String? value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (value == null || value == 'all') {
+        await prefs.remove('hotnot_gender_filter');
+      } else {
+        await prefs.setString('hotnot_gender_filter', value);
+      }
+    } catch (_) {
+      // Ignore persistence errors; they shouldn't block swiping.
+    }
+  }
+
   Future<void> _loadHottedUsers() async {
     if (_currentUserId.isEmpty || _hasLoadedHotted) return;
     setState(() => _isLoadingHotted = true);
@@ -326,8 +339,8 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
     if (!mounted) return;
     setState(() => _isLoading = true);
     try {
+      final prefs = await SharedPreferences.getInstance();
       if (_currentUserId.isEmpty) {
-        final prefs = await SharedPreferences.getInstance();
         _currentUserId = prefs.getString('current_user_uid') ?? '';
       }
 
@@ -344,6 +357,18 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
         if (!mounted) return;
         setState(() => _isLoading = false);
         return;
+      }
+
+      // Restore persisted gender filter (if any) so it sticks across launches
+      try {
+        final savedFilter = prefs.getString('hotnot_gender_filter');
+        if (savedFilter != null && savedFilter.isNotEmpty && savedFilter != 'all') {
+          _genderFilter = savedFilter;
+        } else {
+          _genderFilter = null;
+        }
+      } catch (_) {
+        // If loading fails, fall back to in-memory value / default.
       }
 
       // Preload other sections
@@ -980,9 +1005,11 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
       groupValue: _genderFilter ?? 'all',
       activeColor: Colors.yellow,
       onChanged: (newValue) {
+        final effective = newValue ?? 'all';
         setState(() {
-          _genderFilter = newValue == 'all' ? null : newValue;
+          _genderFilter = effective == 'all' ? null : effective;
         });
+        _saveGenderFilter(effective);
         Navigator.pop(context);
         _loadMatches();
       },

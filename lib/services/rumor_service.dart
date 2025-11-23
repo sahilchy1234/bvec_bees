@@ -488,40 +488,51 @@ class RumorService {
   List<RumorModel> _applyFeedAlgorithm(List<RumorModel> rumors) {
     final now = DateTime.now();
 
-    // Calculate spicy score for each rumor
+    // Calculate a deterministic score for each rumor combining recency,
+    // engagement, controversy, and credibility.
     final scoredRumors = rumors.map((rumor) {
       double score = 0;
 
-      // 1. Engagement Score (votes + comments)
+      // 1. Base engagement (votes + comments)
       final engagementScore = rumor.getEngagementScore();
-      score += engagementScore * 0.4;
+      // Roughly normalize engagement into a 0–100 band
+      final normalizedEngagement =
+          (engagementScore.clamp(0, 50)).toDouble() / 50.0 * 100.0;
+      score += normalizedEngagement * 0.3;
 
-      // 2. Controversy Score (close to 50/50 split)
+      // 2. Controversy boost (close to 50/50 split)
       if (rumor.isControversial()) {
-        score += 50; // High boost for controversial rumors
+        score += 40; // strong boost for controversial rumors
       }
 
-      // 3. Recency Score (newer rumors rank higher, fades after 24 hours)
-      final ageInHours = now.difference(rumor.timestamp).inHours;
-      if (ageInHours <= 24) {
-        final recencyScore = (24 - ageInHours) / 24 * 100;
-        score += recencyScore * 0.3;
+      // 3. Recency (newer rumors rank higher, fades over 48 hours)
+      final ageInHours = now.difference(rumor.timestamp).inMinutes / 60.0;
+      const maxHours = 48.0;
+      if (ageInHours <= maxHours) {
+        final recencyScore =
+            (1 - (ageInHours / maxHours)).clamp(0.0, 1.0) * 100.0;
+        score += recencyScore * 0.5;
       }
 
-      // 4. Trending Boost (high engagement + recent)
+      // 4. Credibility around 0.5 (most uncertain = spiciest)
+      final credibilityCenter = (rumor.credibilityScore - 0.5).abs();
+      final credibilityBoost = (1 - credibilityCenter) * 20; // 0–20
+      score += credibilityBoost;
+
+      // 5. Extra trending boost: high engagement + very recent
       if (engagementScore > 10 && ageInHours <= 12) {
-        score += 30;
+        score += 20;
       }
-
-      // 5. Randomness (keep feed dynamic)
-      // Add some randomness to prevent same rumors always being on top
-      score += (DateTime.now().millisecond % 20).toDouble();
 
       return MapEntry(rumor, score);
     }).toList();
 
-    // Sort by score descending
-    scoredRumors.sort((a, b) => b.value.compareTo(a.value));
+    // Sort by score descending, breaking ties by recency
+    scoredRumors.sort((a, b) {
+      final cmp = b.value.compareTo(a.value);
+      if (cmp != 0) return cmp;
+      return b.key.timestamp.compareTo(a.key.timestamp);
+    });
 
     // Apply diversity boost: max 3 consecutive rumors with high engagement
     final result = <RumorModel>[];

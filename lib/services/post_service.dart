@@ -204,8 +204,14 @@ class PostService {
           .map((doc) => Post.fromMap(doc.data() as Map<String, dynamic>, doc.id))
           .toList();
 
-      // Apply feed algorithm
-      posts.sort((a, b) => b.calculateFeedScore().compareTo(a.calculateFeedScore()));
+      // Apply feed algorithm with strong recency priority: newer posts always
+      // come before older ones (Instagram-style), and score only breaks ties
+      // between posts with the same timestamp.
+      posts.sort((a, b) {
+        final timeCmp = b.timestamp.compareTo(a.timestamp);
+        if (timeCmp != 0) return timeCmp;
+        return b.calculateFeedScore().compareTo(a.calculateFeedScore());
+      });
 
       // Diversity boost: reduce same author dominance
       posts = _applyDiversityBoost(posts);

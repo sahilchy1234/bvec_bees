@@ -89,10 +89,7 @@ class _RumorFeedPageState extends State<RumorFeedPage> {
     final shareUrl = 'https://link.getbeezy.app/rumor/$rumorId';
 
     try {
-      final contentPreview = null;
-      final message = contentPreview.isNotEmpty
-          ? 'Check out this rumor on Beezy:\n\n$contentPreview\n\n$shareUrl'
-          : 'Check out this rumor on Beezy:\n$shareUrl';
+      final message = 'Check out this rumor on Beezy:\n$shareUrl';
 
       await Share.share(
         message,

@@ -671,15 +671,15 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               currentUserId: effectiveCurrentUserId,
               onDelete: _refreshProfile,
               onComment: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CommentsPage(
-                      postId: post.id,
-                      currentUserId: effectiveCurrentUserId,
-                      currentUserName: user.name ?? 'User',
-                      currentUserImage: user.avatarUrl ?? '',
-                    ),
+                showModalBottomSheet<void>(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (_) => CommentsPage(
+                    postId: post.id,
+                    currentUserId: effectiveCurrentUserId,
+                    currentUserName: user.name ?? 'User',
+                    currentUserImage: user.avatarUrl ?? '',
                   ),
                 ).then((_) => _refreshProfile());
               },
@@ -771,15 +771,15 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               currentUserId: effectiveCurrentUserId,
               onDelete: _refreshProfile,
               onComment: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CommentsPage(
-                      postId: post.id,
-                      currentUserId: effectiveCurrentUserId,
-                      currentUserName: user.name ?? 'User',
-                      currentUserImage: user.avatarUrl ?? '',
-                    ),
+                showModalBottomSheet<void>(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (_) => CommentsPage(
+                    postId: post.id,
+                    currentUserId: effectiveCurrentUserId,
+                    currentUserName: user.name ?? 'User',
+                    currentUserImage: user.avatarUrl ?? '',
                   ),
                 );
               },

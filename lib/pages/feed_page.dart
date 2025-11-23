@@ -170,10 +170,12 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveStateMixin
-    
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: const Color.fromARGB(255, 14, 14, 14),
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color.fromARGB(255, 14, 14, 14),
+        statusBarIconBrightness: Brightness.light, // white icons
+        statusBarBrightness: Brightness.dark,
       ),
       child: RefreshIndicator(
         onRefresh: _refreshFeed,
@@ -184,149 +186,154 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
           cacheExtent: 800,
           physics: const BouncingScrollPhysics(),
           slivers: [
-          // Create post section as sliver
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                _buildCreatePostSection(),
-                const Divider(color: Color.fromARGB(255, 0, 0, 0), height: 4,thickness: 4),
-              ],
+            // Create post section as sliver
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  const SizedBox(height: 12),
+                  _buildCreatePostSection(),
+                  const Divider(
+                    color: Color.fromARGB(255, 0, 0, 0),
+                    height: 4,
+                    thickness: 4,
+                  ),
+                ],
+              ),
             ),
-          ),
-          
-          // Feed content
-          if (_isLoading && _posts.isEmpty)
-            const SliverFillRemaining(
-              child: Center(
-                child: CircularProgressIndicator(color: Colors.yellow),
-              ),
-            )
-          else if (_error != null && _posts.isEmpty)
-            SliverFillRemaining(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Error loading feed',
-                        style: GoogleFonts.poppins(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _error!,
-                        style: GoogleFonts.poppins(
-                          color: Colors.grey,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _refreshFeed,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.yellow,
-                          foregroundColor: Colors.black,
-                        ),
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
+
+            // Feed content
+            if (_isLoading && _posts.isEmpty)
+              const SliverFillRemaining(
+                child: Center(
+                  child: CircularProgressIndicator(color: Colors.yellow),
                 ),
-              ),
-            )
-          else if (_posts.isEmpty)
-            SliverFillRemaining(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Text(
-                    'No posts yet. Be the first to post!',
-                    style: GoogleFonts.poppins(
-                      color: Colors.grey,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-            )
-          else
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  if (index < _posts.length) {
-                    return PostCard(
-                      key: ValueKey(_posts[index].id), // Add key for better performance
-                      post: _posts[index],
-                      currentUserId: widget.currentUserId,
-                      onDelete: _refreshFeed,
-                      onComment: () {
-                        showModalBottomSheet<void>(
-                          context: context,
-                          backgroundColor: Colors.transparent,
-                          isScrollControlled: true,
-                          builder: (_) => CommentsPage(
-                            postId: _posts[index].id,
-                            currentUserId: widget.currentUserId,
-                            currentUserName: widget.currentUserName,
-                            currentUserImage: widget.currentUserImage,
+              )
+            else if (_error != null && _posts.isEmpty)
+              SliverFillRemaining(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Error loading feed',
+                          style: GoogleFonts.poppins(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
                           ),
-                        );
-                      },
-                      onAuthorTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ProfilePage(userId: _posts[index].authorId),
-                          ),
-                        );
-                      },
-                    );
-                  } else if (_isLoadingMore) {
-                    return const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: Colors.yellow,
-                          strokeWidth: 2,
                         ),
-                      ),
-                    );
-                  } else if (!_hasMore) {
-                    return Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Center(
-                        child: Text(
-                          'You\'ve reached the end of the feed!',
+                        const SizedBox(height: 8),
+                        Text(
+                          _error!,
                           style: GoogleFonts.poppins(
                             color: Colors.grey,
                             fontSize: 14,
                           ),
+                          textAlign: TextAlign.center,
                         ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _refreshFeed,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.yellow,
+                            foregroundColor: Colors.black,
+                          ),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            else if (_posts.isEmpty)
+              SliverFillRemaining(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Text(
+                      'No posts yet. Be the first to post!',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey,
+                        fontSize: 14,
                       ),
-                    );
-                  }
-                  return null;
-                },
-                childCount: _posts.length + (_isLoadingMore || !_hasMore ? 1 : 0),
-                addAutomaticKeepAlives: false,
-                addRepaintBoundaries: true,
-                addSemanticIndexes: false,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    if (index < _posts.length) {
+                      return PostCard(
+                        key: ValueKey(_posts[index].id), // Add key for better performance
+                        post: _posts[index],
+                        currentUserId: widget.currentUserId,
+                        onDelete: _refreshFeed,
+                        onComment: () {
+                          showModalBottomSheet<void>(
+                            context: context,
+                            backgroundColor: Colors.transparent,
+                            isScrollControlled: true,
+                            builder: (_) => CommentsPage(
+                              postId: _posts[index].id,
+                              currentUserId: widget.currentUserId,
+                              currentUserName: widget.currentUserName,
+                              currentUserImage: widget.currentUserImage,
+                            ),
+                          );
+                        },
+                        onAuthorTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ProfilePage(userId: _posts[index].authorId),
+                            ),
+                          );
+                        },
+                      );
+                    } else if (_isLoadingMore) {
+                      return const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.yellow,
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      );
+                    } else if (!_hasMore) {
+                      return Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Center(
+                          child: Text(
+                            'You\'ve reached the end of the feed!',
+                            style: GoogleFonts.poppins(
+                              color: Colors.grey,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    return null;
+                  },
+                  childCount: _posts.length + (_isLoadingMore || !_hasMore ? 1 : 0),
+                  addAutomaticKeepAlives: false,
+                  addRepaintBoundaries: true,
+                  addSemanticIndexes: false,
+                ),
               ),
+
+            // Bottom padding
+            const SliverPadding(
+              padding: EdgeInsets.only(bottom: 100),
             ),
-          
-          // Bottom padding
-          const SliverPadding(
-            padding: EdgeInsets.only(bottom: 100),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

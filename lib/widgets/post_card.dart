@@ -414,10 +414,7 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     try {
       await _postService.sharePost(postId);
 
-      final contentPreview = widget.post.content.trim();
-      final message = contentPreview.isNotEmpty
-          ? 'Check out this post on Beezy:\n\n$contentPreview\n\n$shareUrl'
-          : 'Check out this post on Beezy:\n$shareUrl';
+      final message = 'Check out this post on Beezy:\n$shareUrl';
 
       await Share.share(
         message,
