@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import 'profile_page.dart';
 
@@ -17,11 +19,62 @@ class _SearchPageState extends State<SearchPage> {
   List<UserModel> _searchResults = [];
   bool _isSearching = false;
   bool _hasSearched = false;
+  List<String> _recentSearches = [];
+  Timer? _debounce;
+  static const int _maxRecentSearches = 8;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentSearches();
+  }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRecentSearches() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList('recent_user_searches') ?? [];
+    if (!mounted) return;
+    setState(() {
+      _recentSearches = saved;
+    });
+  }
+
+  Future<void> _saveRecentSearch(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final current = List<String>.from(
+      prefs.getStringList('recent_user_searches') ?? <String>[],
+    );
+
+    current.removeWhere(
+      (item) => item.toLowerCase() == trimmed.toLowerCase(),
+    );
+    current.insert(0, trimmed);
+    if (current.length > _maxRecentSearches) {
+      current.removeRange(_maxRecentSearches, current.length);
+    }
+
+    await prefs.setStringList('recent_user_searches', current);
+    if (!mounted) return;
+    setState(() {
+      _recentSearches = current;
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {});
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      _performSearch(value);
+    });
   }
 
   Future<void> _performSearch(String query) async {
@@ -40,43 +93,35 @@ class _SearchPageState extends State<SearchPage> {
 
     try {
       final queryLower = query.toLowerCase().trim();
-      
-      // Search by name (case-insensitive)
-      final nameSnapshot = await _firestore
+
+      // Fetch verified users and filter client-side for a true case-insensitive
+      // search on both name and roll number. This avoids issues with
+      // capitalization and ensures all matching profiles can be found.
+      final snapshot = await _firestore
           .collection('users')
-          .where('name', isGreaterThanOrEqualTo: queryLower)
-          .where('name', isLessThanOrEqualTo: '$queryLower\uf8ff')
-          .limit(20)
+          .where('isVerified', isEqualTo: true)
           .get();
 
-      // Search by roll number
-      final rollSnapshot = await _firestore
-          .collection('users')
-          .where('rollNo', isGreaterThanOrEqualTo: queryLower)
-          .where('rollNo', isLessThanOrEqualTo: '$queryLower\uf8ff')
-          .limit(20)
-          .get();
-
-      final userMap = <String, UserModel>{};
-
-      for (final doc in nameSnapshot.docs) {
+      final users = snapshot.docs.map((doc) {
         final data = doc.data();
         data['uid'] = doc.id;
-        final user = UserModel.fromMap(data);
-        userMap[user.uid] = user;
-      }
-
-      for (final doc in rollSnapshot.docs) {
-        final data = doc.data();
-        data['uid'] = doc.id;
-        final user = UserModel.fromMap(data);
-        userMap[user.uid] = user;
-      }
+        return UserModel.fromMap(data);
+      }).where((user) {
+        final name = (user.name ?? '').toLowerCase();
+        final roll = (user.rollNo ?? '').toLowerCase();
+        final nameMatches = queryLower.length >= 3
+            ? name.contains(queryLower)
+            : name.startsWith(queryLower);
+        final rollMatches = roll.startsWith(queryLower);
+        return nameMatches || rollMatches;
+      }).toList();
 
       setState(() {
-        _searchResults = userMap.values.toList();
+        _searchResults = users;
         _isSearching = false;
       });
+
+      await _saveRecentSearch(query);
     } catch (e) {
       setState(() {
         _isSearching = false;
@@ -119,6 +164,52 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
+  Widget _buildRecentSearchesSection() {
+    if (_recentSearches.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 24),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Recent searches',
+            style: GoogleFonts.poppins(
+              color: Colors.grey,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _recentSearches.map((term) {
+            return ActionChip(
+              label: Text(
+                term,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 13,
+                ),
+              ),
+              backgroundColor: Colors.grey[900],
+              onPressed: () {
+                _searchController.text = term;
+                setState(() {});
+                _performSearch(term);
+              },
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -148,10 +239,7 @@ class _SearchPageState extends State<SearchPage> {
                   )
                 : null,
           ),
-          onChanged: (value) {
-            setState(() {});
-            _performSearch(value);
-          },
+          onChanged: _onSearchChanged,
           onSubmitted: _performSearch,
         ),
       ),
@@ -190,31 +278,37 @@ class _SearchPageState extends State<SearchPage> {
                 )
               : !_hasSearched
                   ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.search,
-                            size: 64,
-                            color: Colors.grey[700],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Search for users',
-                            style: GoogleFonts.poppins(
-                              color: Colors.grey,
-                              fontSize: 16,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.search,
+                              size: 64,
+                              color: Colors.grey[700],
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Enter a name or roll number to start',
-                            style: GoogleFonts.poppins(
-                              color: Colors.grey,
-                              fontSize: 14,
+                            const SizedBox(height: 16),
+                            Text(
+                              'Search for users',
+                              style: GoogleFonts.poppins(
+                                color: Colors.grey,
+                                fontSize: 16,
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            Text(
+                              'Enter a name or roll number to start',
+                              style: GoogleFonts.poppins(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            _buildRecentSearchesSection(),
+                          ],
+                        ),
                       ),
                     )
                   : ListView.builder(

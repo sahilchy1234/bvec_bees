@@ -1,33 +1,550 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Page Not Found</title>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beezy | Campus Conversations</title>
+  <meta name="description" content="Beezy keeps BVEC buzzing with real-time campus conversations and verified updates." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020202;
+      --fg: #fafafa;
+      --muted: rgba(255, 255, 255, 0.72);
+      --card: rgba(255, 255, 255, 0.05);
+      --accent: #f8c200;
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
 
-    <style media="screen">
-      body { background: #ECEFF1; color: rgba(0,0,0,0.87); font-family: Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; }
-      #message { background: white; max-width: 360px; margin: 100px auto 16px; padding: 32px 24px 16px; border-radius: 3px; }
-      #message h3 { color: #888; font-weight: normal; font-size: 16px; margin: 16px 0 12px; }
-      #message h2 { color: #ffa100; font-weight: bold; font-size: 16px; margin: 0 0 8px; }
-      #message h1 { font-size: 22px; font-weight: 300; color: rgba(0,0,0,0.6); margin: 0 0 16px;}
-      #message p { line-height: 140%; margin: 16px 0 24px; font-size: 14px; }
-      #message a { display: block; text-align: center; background: #039be5; text-transform: uppercase; text-decoration: none; color: white; padding: 16px; border-radius: 4px; }
-      #message, #message a { box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24); }
-      #load { color: rgba(0,0,0,0.4); text-align: center; font-size: 13px; }
-      @media (max-width: 600px) {
-        body, #message { margin-top: 0; background: white; box-shadow: none; }
-        body { border-top: 16px solid #ffa100; }
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100svh;
+      background: radial-gradient(circle at top, rgba(248, 194, 0, 0.35), transparent 45%), var(--bg);
+      color: var(--fg);
+      display: flex;
+      justify-content: center;
+      padding: clamp(1rem, 4vw, 2rem);
+    }
+
+    .page {
+      width: min(1100px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(1rem, 2vw, 1.5rem);
+    }
+
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.2rem;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(2, 2, 2, 0.45);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      font-weight: 600;
+      font-size: 1.1rem;
+      letter-spacing: 0.04em;
+    }
+
+    .brand img {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+    }
+
+    main {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+      border-radius: clamp(24px, 5vw, 36px);
+      padding: clamp(1.75rem, 5vw, 3.5rem);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      box-shadow: 0 35px 70px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(18px);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.4rem 1rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: var(--muted);
+      font-size: 0.9rem;
+      letter-spacing: 0.02em;
+      background: rgba(255, 255, 255, 0.03);
+      margin-bottom: 1.2rem;
+    }
+
+    .post-card {
+      background: var(--card);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 28px;
+      padding: 1.5rem;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45);
+      flex-direction: column;
+      gap: 1.2rem;
+      display: none;
+    }
+
+    .post-card.visible {
+      display: flex;
+    }
+
+    .post-header {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .avatar {
+      width: 54px;
+      height: 54px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.1);
+      background-size: cover;
+      background-position: center;
+      flex-shrink: 0;
+    }
+
+    .avatar.anon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.8rem;
+      color: var(--fg);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .post-author {
+      margin: 0;
+      font-weight: 600;
+      color: var(--fg);
+    }
+
+    .post-timestamp {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .post-content {
+      margin: 0;
+      color: var(--fg);
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .post-content.rumor-text {
+      font-size: 1.05rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+
+    .post-image {
+      width: 100%;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      max-height: 420px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .post-stats {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 1rem;
+    }
+
+    .post-stats div {
+      display: flex;
+      flex-direction: column;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .post-stats strong {
+      color: var(--fg);
+      font-size: 1.2rem;
+      line-height: 1.2;
+    }
+
+    .helper-text {
+      color: var(--muted);
+      margin-top: 1rem;
+      font-size: 0.95rem;
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.55rem 1.25rem;
+      border-radius: 14px;
+      font-weight: 600;
+      color: #1f1400;
+      background: linear-gradient(135deg, #f8c200, #f5a400);
+      box-shadow: 0 16px 30px rgba(248, 194, 0, 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      flex: 0 0 auto;
+      min-width: 0;
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    .button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 25px 50px rgba(248, 194, 0, 0.5);
+    }
+
+    .secondary {
+      background: transparent;
+      color: var(--fg);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: none;
+    }
+
+    .secondary:hover {
+      border-color: transparent;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    @media (max-width: 820px) {
+      .navbar {
+        padding: 0.85rem 1rem;
       }
-    </style>
-  </head>
-  <body>
-    <div id="message">
-      <h2>404</h2>
-      <h1>Page Not Found</h1>
-      <p>The specified file was not found on this website. Please check the URL for mistakes and try again.</p>
-      <h3>Why am I seeing this?</h3>
-      <p>This page was generated by the Firebase Command-Line Interface. To modify it, edit the <code>404.html</code> file in your project's configured <code>public</code> directory.</p>
-    </div>
-  </body>
+
+      .brand img {
+        width: 36px;
+        height: 36px;
+      }
+
+      main {
+        padding: 1.5rem;
+      }
+
+      .cta-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .button,
+      .secondary {
+        width: 100%;
+        min-width: 0;
+        justify-content: center;
+      }
+
+      .post-stats {
+        justify-content: center;
+      }
+    }
+
+    .spinner {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.15);
+      border-top-color: var(--accent);
+      animation: spin 0.8s linear infinite;
+      margin: 0.5rem 0 0.25rem;
+      display: none;
+    }
+
+    .spinner.active {
+      display: inline-flex;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="navbar">
+      <div class="brand">
+        <img src="/assets/main_icon.png" alt="Beezy logo" />
+        <span>Beezy</span>
+      </div>
+      <span style="color: var(--muted); font-size: 0.95rem;">BVEC campus community</span>
+    </header>
+
+    <main>
+      <div class="status-pill" id="status-pill">Trying to open Beezy…</div>
+      <div class="spinner" id="loading-spinner" role="status" aria-label="Loading"></div>
+      <div class="post-card" id="post-card">
+        <div class="post-header">
+          <div class="avatar" id="post-author-avatar"></div>
+          <div>
+            <p class="post-author" id="post-author-name">Beezy member</p>
+            <p class="post-timestamp" id="post-timestamp">Just now</p>
+          </div>
+        </div>
+        <p class="post-content" id="post-content">Loading…</p>
+        <img class="post-image" id="post-image" alt="Beezy post" hidden />
+        <div class="post-stats" id="post-stats"></div>
+      </div>
+      <p class="helper-text" id="helper-text">Install Beezy to join the campus conversation.</p>
+      <div class="cta-group">
+        <button type="button" class="button" id="open-app-button">Open in Beezy</button>
+      </div>
+    </main>
+  </div>
+  <script>
+    (function setupAppIntent() {
+      var openBtn = document.getElementById('open-app-button');
+      var targetPath = window.location.pathname + window.location.search;
+      var intentUrl = 'intent://beezy' + encodeURIComponent(targetPath) + '#Intent;scheme=https;package=com.bvec.bees;end';
+
+      function openApp(event) {
+        if (event) event.preventDefault();
+        window.location.href = intentUrl;
+      }
+
+      if (openBtn) {
+        openBtn.addEventListener('click', openApp);
+      }
+    })();
+  </script>
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js';
+    import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: 'AIzaSyB3DOZuESJkTvRCJA-bcfT8QnoMwG5pn_k',
+      appId: '1:508194876863:web:8fe747255da2d77d4c850a',
+      messagingSenderId: '508194876863',
+      projectId: 'edunova-fa954',
+      authDomain: 'edunova-fa954.firebaseapp.com',
+      storageBucket: 'edunova-fa954.appspot.com',
+      measurementId: 'G-TTVWPRMY77',
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    const searchParams = new URLSearchParams(window.location.search);
+    const routeType = pathSegments[0] || searchParams.get('type');
+    const entityId = pathSegments[1] || searchParams.get('id');
+    const isPostLink = routeType === 'post';
+    const isRumorLink = routeType === 'rumor';
+
+    const statusEl = document.getElementById('status-pill');
+    const postCard = document.getElementById('post-card');
+    const helperText = document.getElementById('helper-text');
+    const spinnerEl = document.getElementById('loading-spinner');
+    const authorNameEl = document.getElementById('post-author-name');
+    const timestampEl = document.getElementById('post-timestamp');
+    const avatarEl = document.getElementById('post-author-avatar');
+    const contentEl = document.getElementById('post-content');
+    const imageEl = document.getElementById('post-image');
+    const statsEl = document.getElementById('post-stats');
+
+    
+
+    if (!entityId || (!isPostLink && !isRumorLink)) {
+      setStatus('Beezy link not found.');
+      helperText.textContent = 'Ask the sender to share a valid Beezy link for posts or rumors.';
+      hideSpinner();
+      hidePostCard();
+    } else {
+      if (isPostLink) {
+        loadPost(entityId);
+      } else if (isRumorLink) {
+        loadRumor(entityId);
+      }
+    }
+
+    async function loadPost(id) {
+      try {
+        setStatus('Loading Beezy post…');
+        showSpinner();
+        hidePostCard();
+        const snapshot = await getDoc(doc(db, 'posts', id));
+        if (!snapshot.exists()) {
+          showPostNotFound();
+          return;
+        }
+
+        const data = snapshot.data() || {};
+        renderPost(data);
+        setStatus('Preview from Beezy');
+        helperText.textContent = 'Open the Beezy app to react, comment, and see the latest buzz.';
+        hideSpinner();
+        showPostCard();
+      } catch (error) {
+        console.error('Error loading Beezy post', error);
+        showPostNotFound('Unable to load this post right now. Please try again later.');
+      }
+    }
+
+    async function loadRumor(id) {
+      try {
+        setStatus('Loading Beezy rumor…');
+        showSpinner();
+        hidePostCard();
+        const snapshot = await getDoc(doc(db, 'rumors', id));
+        if (!snapshot.exists()) {
+          showPostNotFound('Rumor not found or it was removed.');
+          return;
+        }
+
+        const data = snapshot.data() || {};
+        renderRumor(data);
+        setStatus('Rumor preview');
+        helperText.textContent = 'Open Beezy to vote, comment, and follow the rumor thread.';
+        hideSpinner();
+        showPostCard();
+      } catch (error) {
+        console.error('Error loading Beezy rumor', error);
+        showPostNotFound('Unable to load this rumor right now. Please try again later.');
+      }
+    }
+
+    function renderPost(data) {
+      const authorName = data.authorName || 'Beezy member';
+      const avatar = data.authorImage;
+      const timestamp = toDate(data.timestamp);
+      authorNameEl.textContent = authorName;
+      timestampEl.textContent = timestamp ? formatRelative(timestamp) : 'Just now';
+      avatarEl.classList.remove('anon');
+      avatarEl.textContent = '';
+      contentEl.classList.remove('rumor-text');
+      avatarEl.style.backgroundImage = avatar
+        ? `url('${avatar}')`
+        : 'linear-gradient(135deg, rgba(248,194,0,0.35), rgba(255,255,255,0.05))';
+      contentEl.textContent = data.content || 'Open the Beezy app to view the full post.';
+
+      const images = Array.isArray(data.imageUrls) ? data.imageUrls : [];
+      if (images.length) {
+        imageEl.src = images[0];
+        imageEl.hidden = false;
+      } else {
+        imageEl.hidden = true;
+        imageEl.removeAttribute('src');
+      }
+
+      const stats = [
+        { label: 'Reactions', value: data.likes ?? 0 },
+        { label: 'Comments', value: data.comments ?? 0 },
+        { label: 'Shares', value: data.shares ?? 0 },
+      ];
+      statsEl.innerHTML = stats
+        .map((stat) => `<div><strong>${formatNumber(stat.value)}</strong><span>${stat.label}</span></div>`)
+        .join('');
+    }
+
+    function renderRumor(data) {
+      authorNameEl.textContent = 'Campus rumor';
+      const timestamp = toDate(data.timestamp);
+      timestampEl.textContent = timestamp ? formatRelative(timestamp) : 'Just now';
+      avatarEl.classList.add('anon');
+      avatarEl.textContent = '🕵️';
+      avatarEl.style.backgroundImage = 'linear-gradient(135deg, rgba(248,194,0,0.45), rgba(255,255,255,0.08))';
+      contentEl.textContent = data.content || 'Open Beezy to view the anonymous rumor feed.';
+      contentEl.classList.add('rumor-text');
+      if (imageEl && imageEl.parentNode) {
+        imageEl.parentNode.removeChild(imageEl);
+      }
+
+      const stats = [
+        { label: 'Yes votes', value: data.yesVotes ?? 0 },
+        { label: 'No votes', value: data.noVotes ?? 0 },
+        { label: 'Comments', value: data.commentCount ?? 0 },
+      ];
+      statsEl.innerHTML = stats
+        .map((stat) => `<div><strong>${formatNumber(stat.value)}</strong><span>${stat.label}</span></div>`)
+        .join('');
+    }
+
+    function showPostNotFound(message) {
+      hideSpinner();
+      hidePostCard();
+      setStatus(message || 'Post not found or it was removed.');
+      helperText.textContent = 'Ask the sender to share a fresh link from Beezy.';
+    }
+
+    function setStatus(message) {
+      statusEl.textContent = message;
+    }
+
+    function showSpinner() {
+      spinnerEl.classList.add('active');
+    }
+
+    function hideSpinner() {
+      spinnerEl.classList.remove('active');
+    }
+
+    function showPostCard() {
+      postCard.classList.add('visible');
+    }
+
+    function hidePostCard() {
+      postCard.classList.remove('visible');
+    }
+
+    function toDate(value) {
+      if (!value) return null;
+      if (typeof value.toDate === 'function') return value.toDate();
+      if (value instanceof Date) return value;
+      if (typeof value === 'string') return new Date(value);
+      if (typeof value === 'object' && typeof value.seconds === 'number') {
+        return new Date(value.seconds * 1000);
+      }
+      return null;
+    }
+
+    function formatRelative(date) {
+      const diffMs = Date.now() - date.getTime();
+      const diffMinutes = Math.floor(diffMs / 60000);
+      if (diffMinutes < 1) return 'Just now';
+      if (diffMinutes < 60) return `${diffMinutes}m ago`;
+      const diffHours = Math.floor(diffMinutes / 60);
+      if (diffHours < 24) return `${diffHours}h ago`;
+      const diffDays = Math.floor(diffHours / 24);
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString();
+    }
+
+    function formatNumber(value) {
+      if (!value) return '0';
+      if (value < 1000) return String(value);
+      if (value < 1000000) return `${(value / 1000).toFixed(1).replace(/\.0$/, '')}K`;
+      return `${(value / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
+    }
+  </script>
+</body>
 </html>

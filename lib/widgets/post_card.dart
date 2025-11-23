@@ -9,6 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
+import '../services/report_service.dart';
 import '../pages/trending_page.dart';
 import '../pages/profile_page.dart';
 import '../pages/fullscreen_image_page.dart';
@@ -287,6 +288,7 @@ class _ReactionOption {
 
 class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
   final PostService _postService = PostService();
+  final ReportService _reportService = ReportService();
 
   late Map<String, int> _reactionCounts;
   String? _currentReaction;
@@ -900,6 +902,90 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  Future<void> _showReportDialogForPost() async {
+    if (widget.currentUserId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to report posts')),
+      );
+      return;
+    }
+
+    final controller = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: Text(
+            'Report post',
+            style: GoogleFonts.poppins(color: Colors.white),
+          ),
+          content: TextField(
+            controller: controller,
+            maxLines: 4,
+            style: GoogleFonts.poppins(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Tell us what is wrong with this post',
+              hintStyle: GoogleFonts.poppins(color: Colors.grey),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[700]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.yellow),
+              ),
+              filled: true,
+              fillColor: Colors.grey[850],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(color: Colors.grey[300]),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                'Submit',
+                style: GoogleFonts.poppins(color: Colors.yellow),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final text = controller.text.trim();
+      await _reportService.reportContent(
+        reporterId: widget.currentUserId,
+        targetId: widget.post.id,
+        targetType: 'post',
+        targetOwnerId: widget.post.authorId,
+        reason: text.isEmpty ? 'Not specified' : text,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Report submitted. Thank you.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to submit report: $e')),
+      );
+    }
+  }
+
   Widget _buildPickerIcon(_ReactionOption option, int index) {
     final curve = CurvedAnimation(
       parent: _pickerController,
@@ -1056,6 +1142,22 @@ class _PostCardState extends State<PostCard> with TickerProviderStateMixin {
                               SnackBar(content: Text('Error: $e')),
                             );
                           }
+                        },
+                      ),
+                    ],
+                    icon: const Icon(Icons.more_vert, color: Colors.grey),
+                  ),
+                if (widget.post.authorId != widget.currentUserId && widget.currentUserId.isNotEmpty)
+                  PopupMenuButton(
+                    color: Colors.grey[900],
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        child: Text(
+                          'Report',
+                          style: GoogleFonts.poppins(color: Colors.white),
+                        ),
+                        onTap: () {
+                          Future.microtask(_showReportDialogForPost);
                         },
                       ),
                     ],

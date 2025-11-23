@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beezy | Campus Conversations</title>
+  <meta name="description" content="Beezy keeps BVEC buzzing with real-time campus conversations and verified updates." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020202;
+      --fg: #fafafa;
+      --muted: rgba(255, 255, 255, 0.72);
+      --card: rgba(255, 255, 255, 0.05);
+      --accent: #f8c200;
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, rgba(248, 194, 0, 0.25), transparent 40%),
+        var(--bg);
+      color: var(--fg);
+      padding: clamp(2rem, 5vw, 4rem);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    main {
+      width: min(1120px, 100%);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+      border-radius: 40px;
+      padding: clamp(2rem, 6vw, 4rem);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 35px 70px rgba(0, 0, 0, 0.45);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: clamp(2rem, 4vw, 3.5rem);
+      backdrop-filter: blur(18px);
+    }
+
+    .logo-card {
+      text-align: center;
+    }
+
+    .logo {
+      width: 160px;
+      height: 160px;
+      margin: 0 auto 1.5rem;
+      border-radius: 40px;
+      background: rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .logo img {
+      width: 100%;
+      height: auto;
+    }
+
+    h1 {
+      font-size: clamp(2.4rem, 5vw, 3.3rem);
+      margin: 0 0 1rem;
+    }
+
+    p {
+      margin: 0 0 2rem;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 1.05rem;
+    }
+
+    .cta-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    a.button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.95rem 1.9rem;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 600;
+      color: #1f1400;
+      background: linear-gradient(135deg, #f8c200, #f5a400);
+      box-shadow: 0 18px 40px rgba(248, 194, 0, 0.4);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    a.button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 25px 50px rgba(248, 194, 0, 0.5);
+    }
+
+    .secondary {
+      background: transparent;
+      color: var(--fg);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: none;
+    }
+
+    .secondary:hover {
+      border-color: transparent;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .feature {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.2rem;
+      padding: 0.9rem 1rem;
+      border-radius: 18px;
+      background: var(--card);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: rgba(248, 194, 0, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    @media (max-width: 640px) {
+      .cta-group {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      a.button,
+      .secondary {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="logo-card">
+      <div class="logo">
+        <img src="/assets/main_icon.png" alt="Beezy logo" />
+      </div>
+      <p>BVEC official community app</p>
+    </section>
+
+    <section>
+      <h1>Beezy keeps campus buzzing.</h1>
+      <p>
+        Real talk, instant updates, and safer conversations for BVEC students.
+        Beezy brings news, clubs, and community insights into one encrypted feed.
+      </p>
+      <div class="cta-group">
+        <a class="button" href="https://play.google.com/store/apps/details?id=com.bvec.bees" target="_blank" rel="noopener">Download app</a>
+        <a class="button secondary" href="mailto:hello@getbeezy.app">Contact team</a>
+      </div>
+    </section>
+
+    <section>
+      <div class="feature">
+        <div class="feature-icon">01</div>
+        <div>
+          <strong>Verified community</strong>
+          <p>Only BVEC students and moderators keep the hive signal-noise free.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">02</div>
+        <div>
+          <strong>Real-time alerts</strong>
+          <p>Club launches, campus updates, and official notices in one timeline.</p>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">03</div>
+        <div>
+          <strong>Private chats</strong>
+          <p>Secure messaging for rumors, group work, and campus buzz.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

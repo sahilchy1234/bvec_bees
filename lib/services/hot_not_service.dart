@@ -102,31 +102,47 @@ class HotNotService {
     required String? targetUserLookingFor,
     String? genderFilter,
   }) {
+    // Normalize values to lowercase for consistent comparison regardless of how
+    // they are stored in Firestore or selected in the UI (e.g. 'Male' vs 'male').
+    final String? normalizedCurrentGender = currentUserGender?.toLowerCase();
+    final String? normalizedCurrentLookingFor = currentUserLookingFor?.toLowerCase();
+    final String? normalizedTargetGender = targetUserGender?.toLowerCase();
+    final String? normalizedTargetLookingFor = targetUserLookingFor?.toLowerCase();
+    final String? normalizedGenderFilter = genderFilter?.toLowerCase();
+
     // Apply gender filter from settings if provided
-    if (genderFilter != null && genderFilter != 'all') {
-      if (targetUserGender != genderFilter) return false;
+    if (normalizedGenderFilter != null && normalizedGenderFilter != 'all') {
+      if (normalizedTargetGender != normalizedGenderFilter) return false;
     }
-    
+
     // Check current user's preference
-    if (currentUserLookingFor != null && currentUserLookingFor != 'both') {
-      if (currentUserLookingFor == 'opposite') {
-        if (currentUserGender == 'male' && targetUserGender != 'female') return false;
-        if (currentUserGender == 'female' && targetUserGender != 'male') return false;
-      } else if (currentUserLookingFor == 'same') {
-        if (currentUserGender != targetUserGender) return false;
+    if (normalizedCurrentLookingFor != null && normalizedCurrentLookingFor != 'both') {
+      if (normalizedCurrentLookingFor == 'opposite') {
+        if (normalizedCurrentGender == 'male' && normalizedTargetGender != 'female') {
+          return false;
+        }
+        if (normalizedCurrentGender == 'female' && normalizedTargetGender != 'male') {
+          return false;
+        }
+      } else if (normalizedCurrentLookingFor == 'same') {
+        if (normalizedCurrentGender != normalizedTargetGender) return false;
       }
     }
-    
+
     // Check target user's preference
-    if (targetUserLookingFor != null && targetUserLookingFor != 'both') {
-      if (targetUserLookingFor == 'opposite') {
-        if (targetUserGender == 'male' && currentUserGender != 'female') return false;
-        if (targetUserGender == 'female' && currentUserGender != 'male') return false;
-      } else if (targetUserLookingFor == 'same') {
-        if (targetUserGender != currentUserGender) return false;
+    if (normalizedTargetLookingFor != null && normalizedTargetLookingFor != 'both') {
+      if (normalizedTargetLookingFor == 'opposite') {
+        if (normalizedTargetGender == 'male' && normalizedCurrentGender != 'female') {
+          return false;
+        }
+        if (normalizedTargetGender == 'female' && normalizedCurrentGender != 'male') {
+          return false;
+        }
+      } else if (normalizedTargetLookingFor == 'same') {
+        if (normalizedTargetGender != normalizedCurrentGender) return false;
       }
     }
-    
+
     return true;
   }
   
@@ -158,15 +174,9 @@ class HotNotService {
         
         // Send notification to the user who was hotted
         try {
-          final voterDoc = await _firestore.collection('users').doc(voterId).get();
-          final voterName = voterDoc.data()?['name'] as String? ?? 'Someone';
-          final voterImage = voterDoc.data()?['avatarUrl'] as String? ?? '';
-
           await NotificationService().sendHotVoteNotification(
             targetUserId: targetId,
             voterId: voterId,
-            voterName: voterName,
-            voterImage: voterImage,
           );
         } catch (e) {
           // Ignore notification errors here

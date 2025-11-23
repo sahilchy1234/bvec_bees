@@ -293,7 +293,28 @@ class PostService {
   // Delete a post
   Future<void> deletePost(String postId) async {
     try {
+      // First fetch the post to get its image URLs
+      final doc = await _firestore.collection('posts').doc(postId).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>;
+        final imageUrls = List<String>.from(data['imageUrls'] ?? []);
+
+        // Delete each image from Firebase Storage; ignore individual failures
+        for (final url in imageUrls) {
+          if (url.isNotEmpty) {
+            try {
+              final ref = _storage.refFromURL(url);
+              await ref.delete();
+            } catch (_) {}
+          }
+        }
+      }
+
+      // Delete the post document itself
       await _firestore.collection('posts').doc(postId).delete();
+
+      // Clear cached feed so deleted posts don't linger in offline cache
+      await FeedCacheService.instance.clearCache();
     } catch (e) {
       throw Exception('Failed to delete post: $e');
     }

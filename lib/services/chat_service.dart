@@ -72,6 +72,7 @@ class ChatService {
     required String senderImage,
     required String content,
     required String recipientId,
+    String? imageUrl,
     String? replyToMessageId,
     String? replyToSenderName,
     String? replyToContent,
@@ -85,8 +86,10 @@ class ChatService {
         senderName: senderName,
         senderImage: senderImage,
         content: content,
+        imageUrl: imageUrl,
         timestamp: DateTime.now(),
         isRead: false,
+        isDelivered: false,
         replyToMessageId: replyToMessageId,
         replyToSenderName: replyToSenderName,
         replyToContent: replyToContent,
@@ -100,9 +103,21 @@ class ChatService {
           .doc(messageId)
           .set(message.toMap());
 
+      // Build a preview text for conversation list & notifications
+      final String previewContent;
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        if (content.isNotEmpty) {
+          previewContent = '📷 Photo: $content';
+        } else {
+          previewContent = '📷 Photo';
+        }
+      } else {
+        previewContent = content;
+      }
+
       // Update conversation metadata
       await _firestore.collection('conversations').doc(conversationId).update({
-        'lastMessage': content,
+        'lastMessage': previewContent,
         'lastSenderId': senderId,
         'lastMessageTime': DateTime.now(),
         'unreadCounts.$recipientId': FieldValue.increment(1),
@@ -114,7 +129,7 @@ class ChatService {
         senderId: senderId,
         senderName: senderName,
         senderImage: senderImage,
-        messageContent: content,
+        messageContent: previewContent,
         conversationId: conversationId,
       );
     } catch (e) {
@@ -170,6 +185,29 @@ class ChatService {
       }
     } catch (e) {
       throw Exception('Failed to mark messages as read: $e');
+    }
+  }
+
+  // Mark specific messages as delivered for a conversation
+  Future<void> markMessagesAsDelivered(
+    String conversationId,
+    List<String> messageIds,
+  ) async {
+    if (messageIds.isEmpty) return;
+    try {
+      final batch = _firestore.batch();
+      final messagesRef = _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .collection('messages');
+
+      for (final id in messageIds) {
+        batch.update(messagesRef.doc(id), {'isDelivered': true});
+      }
+
+      await batch.commit();
+    } catch (e) {
+      throw Exception('Failed to mark messages as delivered: $e');
     }
   }
 

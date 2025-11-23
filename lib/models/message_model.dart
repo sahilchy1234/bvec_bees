@@ -7,8 +7,10 @@ class Message {
   final String senderName;
   final String senderImage;
   final String content;
+  final String? imageUrl;
   final DateTime timestamp;
   final bool isRead;
+  final bool isDelivered;
   final String? replyToMessageId;
   final String? replyToSenderName;
   final String? replyToContent;
@@ -20,8 +22,10 @@ class Message {
     required this.senderName,
     required this.senderImage,
     required this.content,
+    this.imageUrl,
     required this.timestamp,
     this.isRead = false,
+    this.isDelivered = false,
     this.replyToMessageId,
     this.replyToSenderName,
     this.replyToContent,
@@ -35,8 +39,10 @@ class Message {
       'senderName': senderName,
       'senderImage': senderImage,
       'content': content,
+      'imageUrl': imageUrl,
       'timestamp': timestamp,
       'isRead': isRead,
+      'isDelivered': isDelivered,
       'replyToMessageId': replyToMessageId,
       'replyToSenderName': replyToSenderName,
       'replyToContent': replyToContent,
@@ -51,8 +57,10 @@ class Message {
       senderName: map['senderName'] ?? '',
       senderImage: map['senderImage'] ?? '',
       content: map['content'] ?? '',
+      imageUrl: map['imageUrl'],
       timestamp: (map['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isRead: map['isRead'] ?? false,
+      isDelivered: map['isDelivered'] ?? false,
       replyToMessageId: map['replyToMessageId'],
       replyToSenderName: map['replyToSenderName'],
       replyToContent: map['replyToContent'],

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Beezy | Page Not Found</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #050505;
+      --card: rgba(255, 255, 255, 0.07);
+      --text: #f5f5f5;
+      --brand: #f8c200;
+      --muted: rgba(255, 255, 255, 0.7);
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at top, rgba(248, 194, 0, 0.25), transparent 50%), var(--bg);
+      color: var(--text);
+    }
+
+    .card {
+      width: min(480px, 90vw);
+      padding: 3rem 2.5rem;
+      background: var(--card);
+      border-radius: 32px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      text-align: center;
+      backdrop-filter: blur(16px);
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      margin-bottom: 1rem;
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.08);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .logo img {
+      max-width: 100%;
+      height: auto;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 5vw, 2.8rem);
+      margin: 0.8rem 0 0.2rem;
+    }
+
+    p {
+      color: var(--muted);
+      margin-bottom: 2rem;
+      line-height: 1.5;
+    }
+
+    a.button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.95rem 1.9rem;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 600;
+      background: linear-gradient(135deg, #f8c200, #f5a400);
+      color: #1f1400;
+      box-shadow: 0 15px 35px rgba(248, 194, 0, 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    a.button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px rgba(248, 194, 0, 0.45);
+    }
+
+    .code {
+      display: inline-block;
+      padding: 0.35rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      font-size: 0.85rem;
+      margin-bottom: 0.8rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="logo">
+      <img src="/assets/main_icon.png" alt="Beezy logo" />
+    </div>
+    <div class="code">Error 404</div>
+    <h1>Oops, wrong hive.</h1>
+    <p>
+      The Beezy page you’re looking for has buzzed off. Let’s get you back to
+      the community.
+    </p>
+    <a class="button" href="https://getbeezy.app">
+      Return to Beezy
+    </a>
+  </main>
+</body>
+</html>

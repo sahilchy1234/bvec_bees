@@ -119,7 +119,69 @@ class StorageService {
     }
   }
 
-  
+  Future<String> uploadChatImage(
+    String conversationId,
+    String senderId,
+    File imageFile,
+  ) async {
+    File? compressedFile;
+    try {
+      if (!imageFile.existsSync()) {
+        throw Exception('Image file does not exist');
+      }
+
+      // Compress chat images using post settings (max ~200KB)
+      compressedFile = await ImageCompressionService.compressImage(
+        imageFile,
+        CompressionType.post,
+      );
+
+      final fileName =
+          '${senderId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final String filePath = 'chat_images/$conversationId/$fileName';
+
+      final ref = _storage.ref().child(filePath);
+
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        customMetadata: {
+          'conversationId': conversationId,
+          'senderId': senderId,
+        },
+        cacheControl: 'public, max-age=31536000',
+      );
+
+      final uploadTask = ref.putFile(compressedFile, metadata);
+
+      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
+        debugPrint(
+            'Chat image upload progress for $conversationId/$senderId: '
+            '${(snapshot.bytesTransferred / snapshot.totalBytes) * 100}%');
+      }, onError: (error) {
+        debugPrint('Chat image upload error for $conversationId/$senderId: $error');
+      });
+
+      final snapshot = await uploadTask
+          .whenComplete(() => debugPrint('Chat image upload completed for $conversationId/$senderId'));
+
+      if (snapshot.state == TaskState.success) {
+        final downloadUrl = await snapshot.ref.getDownloadURL();
+        debugPrint('Chat image download URL for $conversationId/$senderId: $downloadUrl');
+        _urlCache[filePath] = downloadUrl;
+        return downloadUrl;
+      } else {
+        throw Exception('Chat image upload failed: ${snapshot.state}');
+      }
+    } catch (e) {
+      debugPrint('Error in uploadChatImage for $conversationId/$senderId: $e');
+      throw Exception('Failed to upload chat image: $e');
+    } finally {
+      if (compressedFile != null && compressedFile.path != imageFile.path) {
+        await ImageCompressionService.cleanupTempFile(compressedFile);
+      }
+    }
+  }
+
   Future<void> deleteProfileImage(String imageUrl) async {
     try {
       final ref = _storage.refFromURL(imageUrl);

@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/message_model.dart';
 import '../services/chat_service.dart';
+import '../services/storage_service.dart';
 import 'profile_page.dart';
 
 class ChatPage extends StatefulWidget {
@@ -36,7 +39,11 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ChatService _chatService = ChatService();
+  final StorageService _storageService = StorageService();
+  final ImagePicker _imagePicker = ImagePicker();
   bool _isSending = false;
+  bool _isSendingImage = false;
+  File? _pendingImageFile;
   List<Message> _cachedMessages = [];
   bool _hasInitialScrolledToBottom = false;
   Message? _replyToMessage;
@@ -63,28 +70,43 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _sendMessage() async {
-    final text = _messageController.text.trim();
-    if (text.isEmpty || _isSending) return;
+    final caption = _messageController.text.trim();
+    final hasImage = _pendingImageFile != null;
+
+    if ((!hasImage && caption.isEmpty) || _isSending) return;
 
     final replyTarget = _replyToMessage;
+    final imageFile = _pendingImageFile;
 
     setState(() {
       _isSending = true;
+      _isSendingImage = imageFile != null;
       _messageController.clear();
       _replyToMessage = null;
+      _pendingImageFile = null;
     });
 
     // Immediately jump to the bottom so the user stays at the latest messages
     _jumpToBottom();
 
     try {
+      String? imageUrl;
+      if (imageFile != null) {
+        imageUrl = await _storageService.uploadChatImage(
+          widget.conversationId,
+          widget.currentUserId,
+          imageFile,
+        );
+      }
+
       await _chatService.sendMessage(
         conversationId: widget.conversationId,
         senderId: widget.currentUserId,
         senderName: widget.currentUserName,
         senderImage: widget.currentUserImage,
-        content: text,
+        content: caption,
         recipientId: widget.otherUserId,
+        imageUrl: imageUrl,
         replyToMessageId: replyTarget?.id,
         replyToSenderName: replyTarget == null
             ? null
@@ -103,7 +125,34 @@ class _ChatPageState extends State<ChatPage> {
       }
     } finally {
       if (mounted) {
-        setState(() => _isSending = false);
+        setState(() {
+          _isSending = false;
+          _isSendingImage = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _pickAndSendImage() async {
+    if (_isSending || _isSendingImage) return;
+
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+
+      if (picked == null) return;
+
+      setState(() {
+        _pendingImageFile = File(picked.path);
+      });
+      _jumpToBottom();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick image: $e')),
+        );
       }
     }
   }
@@ -112,8 +161,8 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildStatusIcon(Message message, bool isMe) {
     if (!isMe) return const SizedBox.shrink();
 
-    // We treat messages visible in the stream as delivered; isRead drives blue ticks
     if (message.isRead) {
+      // Double blue ticks – read
       return const Icon(
         Icons.done_all,
         size: 14,
@@ -121,8 +170,18 @@ class _ChatPageState extends State<ChatPage> {
       );
     }
 
+    if (message.isDelivered) {
+      // Double grey ticks – delivered
+      return const Icon(
+        Icons.done_all,
+        size: 14,
+        color: Colors.grey,
+      );
+    }
+
+    // Single grey tick – sent
     return const Icon(
-      Icons.done_all,
+      Icons.check,
       size: 14,
       color: Colors.grey,
     );
@@ -131,7 +190,8 @@ class _ChatPageState extends State<ChatPage> {
   String _statusLabel(Message message, bool isMe) {
     if (!isMe) return 'Received';
     if (message.isRead) return 'Read';
-    return 'Delivered';
+    if (message.isDelivered) return 'Delivered';
+    return 'Sent';
   }
 
   void _showMessageDetails(Message message, bool isMe) {
@@ -327,13 +387,75 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  void _openImageViewer(
+    Message message,
+    bool isMatchChat,
+    bool isMe,
+    Color primaryColor,
+    Color secondaryColor,
+  ) {
+    final imageUrl = message.imageUrl;
+    if (imageUrl == null || imageUrl.isEmpty) return;
+
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: true,
+        pageBuilder: (_, __, ___) {
+          return Scaffold(
+            backgroundColor: Colors.black,
+            appBar: AppBar(
+              backgroundColor: Colors.black,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Colors.white),
+              title: Text(
+                isMe ? 'You' : message.senderName,
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            body: Center(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4.0,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.yellow,
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => const Icon(
+                    Icons.broken_image,
+                    color: Colors.redAccent,
+                    size: 48,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+      ),
+    );
+  }
+
   Color _withOpacity(Color color, double opacity) {
     final int alpha = (opacity * 255).round().clamp(0, 255).toInt();
     return Color.fromARGB(alpha, color.red, color.green, color.blue);
   }
 
   BoxDecoration _matchBubbleDecoration(bool isMe) {
-    final Color start = isMe ? const Color(0xFFFF5A76) : const Color(0xFFAE2843);
+    final Color start = isMe ? const Color.fromARGB(255, 253, 60, 92) : const Color(0xFFAE2843);
     final Color end = isMe ? const Color(0xFFB92B3B) : const Color(0xFF7C0B1C);
     return BoxDecoration(
       gradient: LinearGradient(
@@ -501,6 +623,29 @@ class _ChatPageState extends State<ChatPage> {
                     if (hasFreshData) {
                       messages = snapshot.data!;
                       _cachedMessages = messages;
+
+                      // Mark any newly received messages from the other user as delivered
+                      final undeliveredFromOther = messages
+                          .where((m) =>
+                              m.senderId != widget.currentUserId && !m.isDelivered)
+                          .map((m) => m.id)
+                          .toList();
+                      if (undeliveredFromOther.isNotEmpty) {
+                        _chatService.markMessagesAsDelivered(
+                          widget.conversationId,
+                          undeliveredFromOther,
+                        );
+                      }
+
+                      // Instantly mark any visible messages from the other user as read
+                      final hasUnreadFromOther = messages.any((m) =>
+                          m.senderId != widget.currentUserId && !m.isRead);
+                      if (hasUnreadFromOther) {
+                        _chatService.markMessagesAsRead(
+                          widget.conversationId,
+                          widget.currentUserId,
+                        );
+                      }
                     } else {
                       messages = _cachedMessages;
                     }
@@ -634,33 +779,24 @@ class _ChatPageState extends State<ChatPage> {
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   if (!isMe) ...[
-                                    Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            const Color(0xFFE94F5D),
-                                            const Color(0xFFB11E2B),
-                                          ],
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                        ),
-                                        shape: BoxShape.circle,
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.6),
-                                            blurRadius: 12,
+                                    GestureDetector(
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => ProfilePage(
+                                              userId: message.senderId,
+                                            ),
                                           ),
-                                        ],
-                                      ),
-                                      child: const Icon(
-                                        Icons.favorite,
-                                        color: Colors.white,
-                                        size: 18,
+                                        );
+                                      },
+                                      child: _buildUserAvatar(
+                                        message.senderImage,
+                                        message.senderName,
+                                        radius: 20,
                                       ),
                                     ),
-                                    const SizedBox(width: 14),
+                                    const SizedBox(width: 12),
                                   ],
                                   Flexible(
                                     child: Column(
@@ -765,19 +901,79 @@ class _ChatPageState extends State<ChatPage> {
                                                       ],
                                                     ),
                                                   ),
-                                                Text(
-                                                  message.content,
-                                                  style: GoogleFonts.poppins(
-                                                    color: isMatchChat
-                                                        ? (isMe
-                                                            ? Colors.black
-                                                            : Colors.white)
-                                                        : (isMe
-                                                            ? Colors.black
-                                                            : Colors.white),
-                                                    fontSize: 14,
+                                                if (message.imageUrl != null &&
+                                                    message.imageUrl!
+                                                        .isNotEmpty) ...[
+                                                  const SizedBox(height: 4),
+                                                  GestureDetector(
+                                                    onTap: () => _openImageViewer(
+                                                      message,
+                                                      isMatchChat,
+                                                      isMe,
+                                                      primaryColor,
+                                                      secondaryColor,
+                                                    ),
+                                                    child: ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(16),
+                                                      child: AspectRatio(
+                                                        aspectRatio: 4 / 3,
+                                                        child: CachedNetworkImage(
+                                                          imageUrl:
+                                                              message.imageUrl!,
+                                                          fit: BoxFit.cover,
+                                                          placeholder:
+                                                              (context, url) =>
+                                                                  Container(
+                                                            color:
+                                                                Colors.black26,
+                                                            child:
+                                                                const Center(
+                                                              child:
+                                                                  CircularProgressIndicator(
+                                                                strokeWidth: 2,
+                                                                color:
+                                                                    Colors.yellow,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          errorWidget: (context,
+                                                                  url, error) =>
+                                                              Container(
+                                                            color:
+                                                                Colors.black26,
+                                                            child: const Icon(
+                                                              Icons.broken_image,
+                                                              color:
+                                                                  Colors.redAccent,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
                                                   ),
-                                                ),
+                                                  if (message.content
+                                                      .trim()
+                                                      .isNotEmpty)
+                                                    const SizedBox(height: 8),
+                                                ],
+                                                if (message.content
+                                                    .trim()
+                                                    .isNotEmpty)
+                                                  Text(
+                                                    message.content,
+                                                    style:
+                                                        GoogleFonts.poppins(
+                                                      color: isMatchChat
+                                                          ? (isMe
+                                                              ? Colors.black
+                                                              : Colors.white)
+                                                          : (isMe
+                                                              ? Colors.black
+                                                              : Colors.white),
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
                                               ],
                                             ),
                                           ),
@@ -914,8 +1110,67 @@ class _ChatPageState extends State<ChatPage> {
                           ),
                         ),
                       ],
+                      if (_pendingImageFile != null) ...[
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _withOpacity(primaryColor, 0.4),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(
+                                  _pendingImageFile!,
+                                  width: 48,
+                                  height: 48,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Photo ready to send',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: Colors.white70,
+                                ),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                onPressed: () {
+                                  setState(() {
+                                    _pendingImageFile = null;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       Row(
                         children: [
+                          IconButton(
+                            onPressed: (_isSending || _pendingImageFile != null)
+                                ? null
+                                : _pickAndSendImage,
+                            icon: Icon(
+                              Icons.photo,
+                              color: primaryColor,
+                            ),
+                          ),
                           Expanded(
                             child: TextField(
                               controller: _messageController,

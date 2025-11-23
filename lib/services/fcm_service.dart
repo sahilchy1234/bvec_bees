@@ -12,6 +12,8 @@ class FCMService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   late FlutterLocalNotificationsPlugin _localNotifications;
   StreamSubscription<QuerySnapshot>? _notificationSubscription;
+  bool _messagingListenersInitialized = false;
+  final bool _showLocalNotificationsFromFirestore = false;
 
   factory FCMService() {
     return _instance;
@@ -35,7 +37,9 @@ class FCMService {
               change.doc.data() ?? <String, dynamic>{};
           final title = (data['title'] as String?) ?? 'Notification';
           final body = (data['body'] as String?) ?? '';
-          _showSimpleLocalNotification(title, body);
+          if (_showLocalNotificationsFromFirestore) {
+            _showSimpleLocalNotification(title, body);
+          }
         }
       }
     }, onError: (e) {
@@ -105,11 +109,15 @@ class FCMService {
       print('[FCM] getToken returned null for user $userId');
     }
 
-    // Handle foreground messages from FCM
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+    if (!_messagingListenersInitialized) {
+      // Handle foreground messages from FCM
+      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
-    // Handle background messages from FCM
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+      // Handle background messages from FCM
+      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+
+      _messagingListenersInitialized = true;
+    }
 
     // Listen for token refresh
     _firebaseMessaging.onTokenRefresh.listen((newToken) {

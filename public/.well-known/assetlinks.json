@@ -7,7 +7,8 @@
       "namespace": "android_app",
       "package_name": "com.bvec.bees",
       "sha256_cert_fingerprints": [
-        "c6:8d:47:64:db:c5:68:1e:5a:65:c1:97:0c:96:13:e7:1d:0f:a5:d0:a3:33:26:4c:f9:53:b3:87:e2:21:2c:bb"
+        "c6:8d:47:64:db:c5:68:1e:5a:65:c1:97:0c:96:13:e7:1d:0f:a5:d0:a3:33:26:4c:f9:53:b3:87:e2:21:2c:bb",
+        "7f:0c:76:cb:21:a4:0a:c4:db:29:ae:eb:90:ff:25:40:32:00:69:f7:96:51:09:d7:ab:13:b3:ad:ab:92:dc:1d"
       ]
     }
   }

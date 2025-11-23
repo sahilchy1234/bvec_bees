@@ -109,6 +109,13 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
     );
 
     _loadMatches();
+
+    // After the first frame, check if this is the user's first time
+    // opening Hot & Not. If so, automatically show the settings panel
+    // (gender filter dialog) and remember that we've shown it locally.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowSettingsOnFirstOpen();
+    });
   }
 
   void _precacheUserAvatars(List<UserModel> users) {
@@ -164,6 +171,20 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  Future<void> _maybeShowSettingsOnFirstOpen() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasShown = prefs.getBool('hotnot_settings_shown') ?? false;
+      if (hasShown || !mounted) return;
+
+      await prefs.setBool('hotnot_settings_shown', true);
+      if (!mounted) return;
+      _showGenderFilterDialog();
+    } catch (_) {
+      // If anything goes wrong, just skip the auto-show; core flow should continue.
+    }
   }
 
   Future<void> _loadHottedUsers() async {
@@ -555,77 +576,269 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
   }
 
   void _showMatchDialog(UserModel matchedUser) {
+    final currentUser = _currentUser;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.grey[900],
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.yellow, width: 2),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
+      builder: (context) {
+        Widget _buildHeartParticle({
+          required Alignment alignment,
+          required Duration duration,
+          double startYOffset = 40,
+          double maxRise = 80,
+          double size = 22,
+          Color color = Colors.pinkAccent,
+        }) {
+          return Align(
+            alignment: alignment,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: duration,
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) {
+                final opacity = (1 - value).clamp(0.0, 1.0);
+                return Opacity(
+                  opacity: opacity,
+                  child: Transform.translate(
+                    offset: Offset(0, startYOffset - (maxRise * value)),
+                    child: Transform.scale(
+                      scale: 0.7 + (0.5 * value),
+                      child: child,
+                    ),
+                  ),
+                );
+              },
+              child: Icon(
                 Icons.favorite,
-                color: Colors.yellow,
-                size: 64,
+                color: color.withOpacity(0.9),
+                size: size,
               ),
-              const SizedBox(height: 16),
-              Text(
-                'It\'s a Match!',
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'You and ${matchedUser.name ?? 'User'} liked each other',
-                style: GoogleFonts.poppins(
-                  color: Colors.grey,
-                  fontSize: 16,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[800],
-                        foregroundColor: Colors.white,
+            ),
+          );
+        }
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Stack(
+                    children: [
+                      _buildHeartParticle(
+                        alignment: const Alignment(-0.8, 0.2),
+                        duration: const Duration(milliseconds: 1100),
+                        startYOffset: 50,
+                        maxRise: 90,
+                        size: 20,
                       ),
-                      child: Text('Keep Swiping', style: GoogleFonts.poppins()),
-                    ),
+                      _buildHeartParticle(
+                        alignment: const Alignment(-0.3, 0.1),
+                        duration: const Duration(milliseconds: 900),
+                        startYOffset: 60,
+                        maxRise: 80,
+                        size: 18,
+                        color: Colors.pinkAccent,
+                      ),
+                      _buildHeartParticle(
+                        alignment: const Alignment(0.3, 0.15),
+                        duration: const Duration(milliseconds: 1000),
+                        startYOffset: 55,
+                        maxRise: 85,
+                        size: 24,
+                        color: Colors.redAccent,
+                      ),
+                      _buildHeartParticle(
+                        alignment: const Alignment(0.8, 0.25),
+                        duration: const Duration(milliseconds: 1200),
+                        startYOffset: 65,
+                        maxRise: 95,
+                        size: 20,
+                        color: Colors.pinkAccent,
+                      ),
+                      _buildHeartParticle(
+                        alignment: const Alignment(0.0, -0.1),
+                        duration: const Duration(milliseconds: 1300),
+                        startYOffset: 45,
+                        maxRise: 100,
+                        size: 18,
+                        color: Colors.purpleAccent,
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _selectTab(_HotNotTab.matches);
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFF1C0F2E),
+                      Color(0xFF050509),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: Colors.yellow, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.pinkAccent.withOpacity(0.45),
+                      blurRadius: 40,
+                      offset: const Offset(0, 18),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 650),
+                      curve: Curves.elasticOut,
+                      builder: (context, value, child) {
+                        return Transform.scale(
+                          scale: 0.8 + (0.3 * value),
+                          child: child,
+                        );
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.yellow,
-                        foregroundColor: Colors.black,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [Colors.pinkAccent, Colors.orangeAccent],
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.pinkAccent.withOpacity(0.7),
+                              blurRadius: 30,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.favorite,
+                          color: Colors.white,
+                          size: 56,
+                        ),
                       ),
-                      child: Text('View Matches', style: GoogleFonts.poppins()),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 20),
+                    Text(
+                      "It's a Match!",
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'You and ${matchedUser.name ?? 'User'} liked each other',
+                      style: GoogleFonts.poppins(
+                        color: Colors.grey[300],
+                        fontSize: 15,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    if (currentUser != null)
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        duration: const Duration(milliseconds: 500),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, value, child) {
+                          return Opacity(
+                            opacity: value,
+                            child: Transform.translate(
+                              offset: Offset(0, 16 * (1 - value)),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildUserAvatar(
+                              currentUser.avatarUrl ?? '',
+                              currentUser.name ?? 'You',
+                              radius: 34,
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Icon(
+                                Icons.favorite,
+                                color: Colors.pinkAccent[200],
+                                size: 26,
+                              ),
+                            ),
+                            _buildUserAvatar(
+                              matchedUser.avatarUrl ?? '',
+                              matchedUser.name ?? 'User',
+                              radius: 34,
+                            ),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[900],
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: Text(
+                              'Keep Swiping',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _selectTab(_HotNotTab.matches);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.yellow,
+                              foregroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: Text(
+                              'View Matches',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1041,12 +1254,16 @@ class _SwipePageState extends State<SwipePage> with TickerProviderStateMixin {
                     children: [
                       Row(
                         children: [
-                          Text(
-                            otherUser?.name ?? 'Match',
-                            style: GoogleFonts.poppins(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
+                          Expanded(
+                            child: Text(
+                              otherUser?.name ?? 'Match',
+                              style: GoogleFonts.poppins(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
                             ),
                           ),
                           const SizedBox(width: 8),

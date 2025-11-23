@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -170,15 +171,19 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin<
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveStateMixin
     
-    return RefreshIndicator(
-      onRefresh: _refreshFeed,
-      color: Colors.yellow,
-      backgroundColor: Colors.grey[900],
-      child: CustomScrollView(
-        controller: widget.scrollController,
-        cacheExtent: 800,
-        physics: const BouncingScrollPhysics(),
-        slivers: [
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: const Color.fromARGB(255, 14, 14, 14),
+      ),
+      child: RefreshIndicator(
+        onRefresh: _refreshFeed,
+        color: Colors.yellow,
+        backgroundColor: Colors.grey[900],
+        child: CustomScrollView(
+          controller: widget.scrollController,
+          cacheExtent: 800,
+          physics: const BouncingScrollPhysics(),
+          slivers: [
           // Create post section as sliver
           SliverToBoxAdapter(
             child: Column(

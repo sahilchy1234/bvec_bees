@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/rumor_model.dart';
+import '../services/report_service.dart';
 
 class RumorCard extends StatefulWidget {
   final RumorModel rumor;
@@ -76,6 +77,7 @@ class _AnimatedProgressBar extends StatelessWidget {
 }
 
 class _RumorCardState extends State<RumorCard> {
+  final ReportService _reportService = ReportService();
   late bool _userVotedYes;
   late bool _userVotedNo;
   late int _yesVotesLocal;
@@ -169,6 +171,89 @@ class _RumorCardState extends State<RumorCard> {
     return ratio < 0.15;
   }
 
+  Future<void> _showReportDialogForRumor() async {
+    if (widget.currentUserId.isEmpty || widget.currentUserId == 'anonymous') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to report rumors')),
+      );
+      return;
+    }
+
+    final controller = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: Text(
+            'Report rumor',
+            style: GoogleFonts.poppins(color: Colors.white),
+          ),
+          content: TextField(
+            controller: controller,
+            maxLines: 4,
+            style: GoogleFonts.poppins(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Tell us what is wrong with this rumor',
+              hintStyle: GoogleFonts.poppins(color: Colors.grey),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: Colors.grey[700]!),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Colors.yellow),
+              ),
+              filled: true,
+              fillColor: Colors.grey[850],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(color: Colors.grey[300]),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                'Submit',
+                style: GoogleFonts.poppins(color: Colors.yellow),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final text = controller.text.trim();
+      await _reportService.reportContent(
+        reporterId: widget.currentUserId,
+        targetId: widget.rumor.id,
+        targetType: 'rumor',
+        reason: text.isEmpty ? 'Not specified' : text,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Report submitted. Thank you.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to submit report: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -183,12 +268,6 @@ class _RumorCardState extends State<RumorCard> {
           ],
         ),
         borderRadius: BorderRadius.circular(16),
-        // border: Border.all(
-        //   color: _isControversialLocal()
-        //       ? Colors.amber.withOpacity(0.6)
-        //       : Colors.amber.withOpacity(0.2),
-        //   width: 1.5,
-        // ),
         boxShadow: [
           BoxShadow(
             color: _isControversialLocal()
@@ -221,7 +300,6 @@ class _RumorCardState extends State<RumorCard> {
                             Colors.yellow.withOpacity(0.2),
                           ],
                         ),
-                      
                       ),
                       child: const Center(
                         child: FaIcon(
@@ -261,9 +339,9 @@ class _RumorCardState extends State<RumorCard> {
                         padding:
                             const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                        //  color: Colors.amber.withOpacity(0.2),
-                      //    borderRadius: BorderRadius.circular(6),
-                      //    border: Border.all(color: Colors.amber, width: 1),
+                          // color: Colors.amber.withOpacity(0.2),
+                          // borderRadius: BorderRadius.circular(6),
+                          // border: Border.all(color: Colors.amber, width: 1),
                         ),
                         child: const Row(
                           children: [
@@ -284,6 +362,16 @@ class _RumorCardState extends State<RumorCard> {
                           ],
                         ),
                       ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.flag_outlined,
+                        color: Colors.redAccent,
+                        size: 18,
+                      ),
+                      onPressed: _showReportDialogForRumor,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                     IconButton(
                       icon: const FaIcon(
                         FontAwesomeIcons.share,
@@ -313,7 +401,7 @@ class _RumorCardState extends State<RumorCard> {
               child: Text(
                 widget.rumor.content,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.caveat(
+                style: GoogleFonts.jersey25(
                   color: Colors.white,
                   fontSize: 25,
                   height: 1.5,

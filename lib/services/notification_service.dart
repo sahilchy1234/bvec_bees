@@ -271,18 +271,13 @@ class NotificationService {
   Future<void> sendHotVoteNotification({
     required String targetUserId,
     required String voterId,
-    required String voterName,
-    required String voterImage,
   }) async {
     try {
       await _fcmService.sendNotification(
         userId: targetUserId,
         type: 'hot_vote',
-        title: '$voterName thinks you\'re hot! 🔥',
-        body: 'Open Beezy to see their profile.',
-        senderId: voterId,
-        senderName: voterName,
-        senderImage: voterImage,
+        title: 'Someone has hotted your profile 🔥',
+        body: 'Open Beezy to see your new activity.',
         relatedId: voterId,
         data: {
           'type': 'hot_vote',
