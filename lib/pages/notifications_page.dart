@@ -2,6 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/notification_service.dart';
+import 'post_detail_page.dart';
+import 'matches_page.dart';
+import 'profile_page.dart';
 
 class NotificationsPage extends StatefulWidget {
   final String currentUserId;
@@ -104,6 +107,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 final senderName = (data['senderName'] as String?) ?? '';
                 final senderImage = (data['senderImage'] as String?) ?? '';
                 final ts = data['timestamp'];
+                final relatedId = data['relatedId'] as String?;
+                final Map<String, dynamic> extraData =
+                    (data['data'] as Map<String, dynamic>?) ?? <String, dynamic>{};
 
               DateTime? timestamp;
               if (ts is Timestamp) {
@@ -155,7 +161,37 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
                 return ListTile(
                   onTap: () {
-                    // Placeholder: later you can navigate to post/chat/match based on data
+                    // Navigate based on notification type
+                    if (type == 'post_like' || type == 'comment' || type == 'tag') {
+                      final postId =
+                          extraData['postId'] as String? ?? relatedId ?? '';
+                      if (postId.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PostDetailPage(postId: postId),
+                          ),
+                        );
+                      }
+                    } else if (type == 'match') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MatchesPage(),
+                        ),
+                      );
+                    } else if (type == 'hot_vote') {
+                      final voterId =
+                          extraData['voterId'] as String? ?? relatedId ?? '';
+                      if (voterId.isNotEmpty) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ProfilePage(userId: voterId),
+                          ),
+                        );
+                      }
+                    }
                   },
                   leading: Stack(
                   alignment: Alignment.bottomRight,
