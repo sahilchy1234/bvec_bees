@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BVEC Bees Admin · Rumors</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-page="rumors">
+  <header>
+    <div class="header-content">
+      <h1>BVEC Bees Admin</h1>
+      <nav class="nav-links">
+        <a href="index.html">Users</a>
+        <a href="posts.html">Posts</a>
+        <a href="rumors.html" class="active">Rumors</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <section class="controls">
+      <button id="refreshBtn">Refresh</button>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <h2>Rumors</h2>
+        <input type="search" id="rumors-search" placeholder="Search rumors..." />
+      </div>
+      <div id="rumors-list" class="card-list"></div>
+      <div id="rumors-loading" class="loading">Loading...</div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

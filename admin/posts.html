@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BVEC Bees Admin · Posts</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-page="posts">
+  <header>
+    <div class="header-content">
+      <h1>BVEC Bees Admin</h1>
+      <nav class="nav-links">
+        <a href="index.html">Users</a>
+        <a href="posts.html" class="active">Posts</a>
+        <a href="rumors.html">Rumors</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    <section class="controls">
+      <button id="refreshBtn">Refresh</button>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <h2>Feed Posts</h2>
+        <input type="search" id="posts-search" placeholder="Search posts (author, text, hashtag)..." />
+      </div>
+      <div id="posts-list" class="card-list"></div>
+      <div id="posts-loading" class="loading">Loading...</div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

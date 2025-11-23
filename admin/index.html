@@ -6,10 +6,15 @@
   <title>BVEC Bees Admin</title>
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
+<body data-page="users">
   <header>
     <div class="header-content">
       <h1>BVEC Bees Admin</h1>
+      <nav class="nav-links">
+        <a href="index.html" class="active">Users</a>
+        <a href="posts.html">Posts</a>
+        <a href="rumors.html">Rumors</a>
+      </nav>
     </div>
   </header>
   <main>
@@ -34,6 +39,7 @@
       <div id="verified-list" class="card-list"></div>
       <div id="verified-loading" class="loading">Loading...</div>
     </section>
+
   </main>
 
   <script type="module" src="app.js"></script>

@@ -42,10 +42,37 @@ header {
   padding: 0 24px;
   max-width: 1200px;
   margin: 0 auto;
+  gap: 32px;
 }
 
 header h1 {
   font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.nav-links {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.nav-links a {
+  color: rgba(255, 255, 255, 0.9);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 999px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.nav-links a:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.nav-links a.active {
+  background-color: #fff;
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -85,6 +112,14 @@ button.secondary {
 
 button.secondary:hover {
   background-color: #5a6268;
+}
+
+button.danger {
+  background-color: var(--danger);
+}
+
+button.danger:hover {
+  background-color: #c82333;
 }
 
 .section-header {
